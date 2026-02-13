@@ -8,7 +8,7 @@ import {
   saveFavoriteFromFood,
   saveMacroTargets,
 } from './server-actions'
-import { FoodPhotoUploader } from './food-photo-uploader'
+import { FoodClient } from './food-client'
 
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10)
@@ -215,13 +215,9 @@ export default async function DashboardPage({
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Food</h2>
-                <FoodPhotoUploader
-                  onEstimate={() => {
-                    // This handler is client-side only; estimate is applied via form defaults in the client in next iteration.
-                    // For now: users can read estimate in devtools response; saving UI is next.
-                  }}
-                />
               </div>
+
+              <FoodClient selectedDate={selectedDate} />
 
               {favorites && favorites.length ? (
                 <div className="space-y-2">
