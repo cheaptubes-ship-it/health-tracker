@@ -217,7 +217,7 @@ export default async function DashboardPage({
                 <h2 className="text-lg font-semibold">Food</h2>
               </div>
 
-              <FoodClient selectedDate={selectedDate} />
+              <FoodClient selectedDate={selectedDate} addFoodAction={addFood} />
 
               {favorites && favorites.length ? (
                 <div className="space-y-2">
@@ -236,64 +236,6 @@ export default async function DashboardPage({
                 </div>
               ) : null}
 
-              <form
-                action={addFood}
-                className="grid gap-3 rounded-lg border bg-neutral-50 p-4"
-              >
-                <input type="hidden" name="entry_date" value={selectedDate} />
-                <input type="hidden" name="source" value="manual" />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    Name
-                    <input
-                      name="name"
-                      className="rounded border px-3 py-2"
-                      placeholder="e.g. Chicken burrito"
-                      required
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Calories
-                    <input
-                      name="calories"
-                      type="number"
-                      step="1"
-                      className="rounded border px-3 py-2"
-                      required
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Protein (g)
-                    <input
-                      name="protein_g"
-                      type="number"
-                      step="0.1"
-                      className="rounded border px-3 py-2"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Carbs (g)
-                    <input
-                      name="carbs_g"
-                      type="number"
-                      step="0.1"
-                      className="rounded border px-3 py-2"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Fat (g)
-                    <input
-                      name="fat_g"
-                      type="number"
-                      step="0.1"
-                      className="rounded border px-3 py-2"
-                    />
-                  </label>
-                </div>
-                <button className="w-fit rounded bg-black px-3 py-2 text-sm text-white">
-                  Add food
-                </button>
-              </form>
 
               <div className="rounded-lg border p-4">
                 <div className="flex items-baseline justify-between">

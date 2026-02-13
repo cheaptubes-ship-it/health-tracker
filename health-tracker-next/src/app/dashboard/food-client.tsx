@@ -13,10 +13,14 @@ type Estimate = {
   notes?: string
 }
 
+type AddFoodAction = (formData: FormData) => Promise<void>
+
 export function FoodClient({
   selectedDate,
+  addFoodAction,
 }: {
   selectedDate: string
+  addFoodAction: AddFoodAction
 }) {
   const [estimate, setEstimate] = useState<Estimate | null>(null)
 
@@ -28,8 +32,26 @@ export function FoodClient({
       protein_g: String(Number(estimate.protein_g ?? 0)),
       carbs_g: String(Number(estimate.carbs_g ?? 0)),
       fat_g: String(Number(estimate.fat_g ?? 0)),
+      source: 'ai_photo',
     }
   }, [estimate])
+
+  const [name, setName] = useState('')
+  const [calories, setCalories] = useState('')
+  const [protein, setProtein] = useState('')
+  const [carbs, setCarbs] = useState('')
+  const [fat, setFat] = useState('')
+  const [source, setSource] = useState<'manual' | 'ai_photo'>('manual')
+
+  function useEstimate() {
+    if (!defaults) return
+    setName(defaults.name)
+    setCalories(defaults.calories)
+    setProtein(defaults.protein_g)
+    setCarbs(defaults.carbs_g)
+    setFat(defaults.fat_g)
+    setSource('ai_photo')
+  }
 
   return (
     <div className="space-y-3">
@@ -64,23 +86,111 @@ export function FoodClient({
               Clear
             </button>
           </div>
-          <p className="mt-2 text-xs text-neutral-500">
-            Next: click “Use estimate” to autofill the form (coming immediately).
-          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              className="rounded bg-black px-3 py-2 text-sm text-white"
+              onClick={useEstimate}
+            >
+              Use estimate
+            </button>
+            <button
+              className="rounded border px-3 py-2 text-sm hover:bg-neutral-50"
+              onClick={() => setEstimate(null)}
+              type="button"
+            >
+              Discard
+            </button>
+          </div>
         </div>
       ) : null}
 
-      {/* Hidden inputs helper for autofill via browser autocomplete isn't reliable; we'll use a dedicated form component next. */}
-      {defaults ? (
-        <div className="hidden" aria-hidden>
-          <input defaultValue={selectedDate} />
-          <input defaultValue={defaults.name} />
-          <input defaultValue={defaults.calories} />
-          <input defaultValue={defaults.protein_g} />
-          <input defaultValue={defaults.carbs_g} />
-          <input defaultValue={defaults.fat_g} />
+      <form
+        action={addFoodAction}
+        className="grid gap-3 rounded-lg border bg-neutral-50 p-4"
+      >
+        <input type="hidden" name="entry_date" value={selectedDate} />
+        <input type="hidden" name="source" value={source} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm">
+            Name
+            <input
+              name="name"
+              className="rounded border px-3 py-2"
+              placeholder="e.g. Chicken burrito"
+              required
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value)
+                setSource('manual')
+              }}
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            Calories
+            <input
+              name="calories"
+              type="number"
+              step="1"
+              className="rounded border px-3 py-2"
+              required
+              value={calories}
+              onChange={(e) => {
+                setCalories(e.target.value)
+                setSource('manual')
+              }}
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            Protein (g)
+            <input
+              name="protein_g"
+              type="number"
+              step="0.1"
+              className="rounded border px-3 py-2"
+              value={protein}
+              onChange={(e) => {
+                setProtein(e.target.value)
+                setSource('manual')
+              }}
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            Carbs (g)
+            <input
+              name="carbs_g"
+              type="number"
+              step="0.1"
+              className="rounded border px-3 py-2"
+              value={carbs}
+              onChange={(e) => {
+                setCarbs(e.target.value)
+                setSource('manual')
+              }}
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            Fat (g)
+            <input
+              name="fat_g"
+              type="number"
+              step="0.1"
+              className="rounded border px-3 py-2"
+              value={fat}
+              onChange={(e) => {
+                setFat(e.target.value)
+                setSource('manual')
+              }}
+            />
+          </label>
         </div>
-      ) : null}
+        <button className="w-fit rounded bg-black px-3 py-2 text-sm text-white">
+          Add food
+        </button>
+        <p className="text-xs text-neutral-500">
+          Source: <span className="font-mono">{source}</span>
+        </p>
+      </form>
     </div>
   )
 }
