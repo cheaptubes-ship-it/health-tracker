@@ -81,16 +81,45 @@ export function FoodClient({
     }
   }
 
+  const [dbBase, setDbBase] = useState<{
+    per100g: { calories: number; protein_g: number; carbs_g: number; fat_g: number }
+    serving: string | null
+  } | null>(null)
+  const [grams, setGrams] = useState('100')
+
+  function parseServingGrams(serving: string | null) {
+    if (!serving) return null
+    // crude parse: look for "170 g" or "170g"
+    const m = serving.toLowerCase().match(/(\d+(?:\.\d+)?)\s*g\b/)
+    if (!m) return null
+    const num = Number(m[1])
+    return Number.isFinite(num) ? num : null
+  }
+
   function applyDbItem(item: {
     name: string
     serving: string | null
     per100g: { calories: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null }
   }) {
     setName(item.name)
-    setCalories(item.per100g.calories != null ? String(Math.round(item.per100g.calories)) : '')
-    setProtein(item.per100g.protein_g != null ? String(item.per100g.protein_g) : '')
-    setCarbs(item.per100g.carbs_g != null ? String(item.per100g.carbs_g) : '')
-    setFat(item.per100g.fat_g != null ? String(item.per100g.fat_g) : '')
+
+    const base = {
+      calories: Number(item.per100g.calories ?? 0),
+      protein_g: Number(item.per100g.protein_g ?? 0),
+      carbs_g: Number(item.per100g.carbs_g ?? 0),
+      fat_g: Number(item.per100g.fat_g ?? 0),
+    }
+
+    setDbBase({ per100g: base, serving: item.serving })
+
+    const g = parseServingGrams(item.serving) ?? 100
+    setGrams(String(g))
+
+    const mult = g / 100
+    setCalories(String(Math.round(base.calories * mult)))
+    setProtein(String(Number((base.protein_g * mult).toFixed(1))))
+    setCarbs(String(Number((base.carbs_g * mult).toFixed(1))))
+    setFat(String(Number((base.fat_g * mult).toFixed(1))))
     setSource('db')
   }
 
@@ -230,6 +259,42 @@ export function FoodClient({
       >
         <input type="hidden" name="entry_date" value={selectedDate} />
         <input type="hidden" name="source" value={source} />
+
+        {source === 'db' ? (
+          <div className="rounded border bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">Serving math</div>
+                <div className="text-xs text-neutral-600">
+                  OpenFoodFacts macros are usually per 100g. Pick grams to scale.
+                  {dbBase?.serving ? ` Serving: ${dbBase.serving}` : ''}
+                </div>
+              </div>
+              <label className="grid gap-1 text-sm">
+                Grams
+                <input
+                  className="w-28 rounded border px-3 py-2"
+                  type="number"
+                  step="1"
+                  min={0}
+                  value={grams}
+                  onChange={(e) => {
+                    const g = e.target.value
+                    setGrams(g)
+                    const num = Number(g)
+                    if (!dbBase || !Number.isFinite(num)) return
+                    const mult = num / 100
+                    setCalories(String(Math.round(dbBase.per100g.calories * mult)))
+                    setProtein(String(Number((dbBase.per100g.protein_g * mult).toFixed(1))))
+                    setCarbs(String(Number((dbBase.per100g.carbs_g * mult).toFixed(1))))
+                    setFat(String(Number((dbBase.per100g.fat_g * mult).toFixed(1))))
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-sm">
             Name
