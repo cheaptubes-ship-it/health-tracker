@@ -144,6 +144,43 @@ export async function addFoodFromFavorite(formData: FormData) {
   revalidatePath('/dashboard')
 }
 
+export async function addVitals(formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const entry_date = String(formData.get('entry_date') ?? '').trim()
+  const systolic = n(formData.get('systolic'))
+  const diastolic = n(formData.get('diastolic'))
+  const pulse = n(formData.get('pulse'))
+
+  if (systolic == null || diastolic == null) throw new Error('Missing blood pressure')
+
+  const { error } = await supabase.from('vitals_entries').insert({
+    user_id: user.id,
+    entry_date: entry_date || undefined,
+    systolic,
+    diastolic,
+    pulse,
+  })
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
+export async function deleteVitals(formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const id = String(formData.get('id') ?? '')
+  if (!id) return
+
+  const { error } = await supabase.from('vitals_entries').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard')
+}
+
 export async function saveMacroTargets(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const {

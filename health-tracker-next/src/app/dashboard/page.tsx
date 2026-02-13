@@ -4,6 +4,7 @@ import {
   addFood,
   addFoodFromFavorite,
   addPeptide,
+  addVitals,
   addWeight,
   deleteFood,
   saveFavoriteFromFood,
@@ -11,6 +12,7 @@ import {
 } from './server-actions'
 import { FoodClient } from './food-client'
 import { PeptideList } from './peptide-list'
+import { VitalsList } from './vitals-list'
 
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10)
@@ -346,6 +348,31 @@ export default async function DashboardPage({
                   </p>
                 )}
               </div>
+            </div>
+          ) : tab === 'vitals' ? (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Vitals</h2>
+
+              <form action={addVitals} className="grid gap-3 rounded-lg border bg-neutral-50 p-4">
+                <input type="hidden" name="entry_date" value={selectedDate} />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="grid gap-1 text-sm">
+                    Systolic
+                    <input name="systolic" type="number" step="1" className="rounded border px-3 py-2" required />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Diastolic
+                    <input name="diastolic" type="number" step="1" className="rounded border px-3 py-2" required />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Pulse
+                    <input name="pulse" type="number" step="1" className="rounded border px-3 py-2" />
+                  </label>
+                </div>
+                <button className="w-fit rounded bg-black px-3 py-2 text-sm text-white">Add vitals</button>
+              </form>
+
+              <VitalsList selectedDate={selectedDate} />
             </div>
           ) : tab === 'weight' ? (
             <div className="space-y-4">
