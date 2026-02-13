@@ -3,12 +3,14 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import {
   addFood,
   addFoodFromFavorite,
+  addPeptide,
   addWeight,
   deleteFood,
   saveFavoriteFromFood,
   saveMacroTargets,
 } from './server-actions'
 import { FoodClient } from './food-client'
+import { PeptideList } from './peptide-list'
 
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10)
@@ -217,7 +219,11 @@ export default async function DashboardPage({
                 <h2 className="text-lg font-semibold">Food</h2>
               </div>
 
-              <FoodClient selectedDate={selectedDate} addFoodAction={addFood} />
+              <FoodClient
+                selectedDate={selectedDate}
+                addFoodAction={addFood}
+                saveFavoriteAction={saveFavoriteFromFood}
+              />
 
               {favorites && favorites.length ? (
                 <div className="space-y-2">
@@ -286,14 +292,54 @@ export default async function DashboardPage({
               </div>
 
               <div className="rounded-lg border p-4">
-                <h3 className="font-medium">Macro coach (v1)</h3>
+                <h3 className="font-medium">Macro coach</h3>
                 {targets?.calories != null ? (
-                  <ul className="mt-2 list-disc pl-5 text-sm text-neutral-700">
-                    <li>Calories remaining: {remaining.calories}</li>
-                    <li>Protein remaining: {remaining.protein ?? '—'}</li>
-                    <li>Carbs remaining: {remaining.carbs ?? '—'}</li>
-                    <li>Fat remaining: {remaining.fat ?? '—'}</li>
-                  </ul>
+                  <>
+                    <ul className="mt-2 list-disc pl-5 text-sm text-neutral-700">
+                      <li>Calories remaining: {remaining.calories}</li>
+                      <li>Protein remaining: {remaining.protein ?? '—'}</li>
+                      <li>Carbs remaining: {remaining.carbs ?? '—'}</li>
+                      <li>Fat remaining: {remaining.fat ?? '—'}</li>
+                    </ul>
+                    {favorites && favorites.length ? (
+                      <div className="mt-3">
+                        <div className="text-sm font-medium">Suggested favorites</div>
+                        <div className="mt-2 grid gap-2">
+                          {favorites
+                            .map((f) => {
+                              const remP = remaining.protein ?? 0
+                              const remC = remaining.carbs ?? 0
+                              const remF = remaining.fat ?? 0
+                              // score: prefer high protein when protein remaining is high, and avoid overshooting fat/carbs.
+                              const p = Number(f.protein_g ?? 0)
+                              const c = Number(f.carbs_g ?? 0)
+                              const fat = Number(f.fat_g ?? 0)
+                              const score =
+                                (remP > 0 ? Math.min(p, remP) * 3 : 0) +
+                                (remC > 0 ? Math.min(c, remC) * 1 : 0) +
+                                (remF > 0 ? Math.min(fat, remF) * 1 : 0) -
+                                Math.max(0, fat - remF) * 2 -
+                                Math.max(0, c - remC) * 1.5
+                              return { f, score }
+                            })
+                            .sort((a, b) => b.score - a.score)
+                            .slice(0, 3)
+                            .map(({ f }) => (
+                              <form key={f.id} action={addFoodFromFavorite}>
+                                <input type="hidden" name="entry_date" value={selectedDate} />
+                                <input type="hidden" name="favorite_id" value={f.id} />
+                                <button className="w-full rounded border px-3 py-2 text-left text-sm hover:bg-neutral-50">
+                                  <div className="font-medium">{f.name}</div>
+                                  <div className="text-xs text-neutral-600">
+                                    {Number(f.calories)} cal • P {Number(f.protein_g)} / C {Number(f.carbs_g)} / F {Number(f.fat_g)}
+                                  </div>
+                                </button>
+                              </form>
+                            ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
                 ) : (
                   <p className="mt-2 text-sm text-neutral-600">
                     Set macro targets in Settings to enable recommendations.
@@ -371,12 +417,60 @@ export default async function DashboardPage({
                 search.
               </p>
             </div>
+          ) : tab === 'peptides' ? (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Peptides</h2>
+
+              <form action={addPeptide} className="grid gap-3 rounded-lg border bg-neutral-50 p-4">
+                <input type="hidden" name="entry_date" value={selectedDate} />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm">
+                    Name
+                    <input name="name" className="rounded border px-3 py-2" placeholder="e.g. BPC-157" required />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Vial amount
+                    <div className="flex gap-2">
+                      <input name="vial_amount" type="number" step="0.01" className="w-full rounded border px-3 py-2" required />
+                      <select name="vial_unit" className="rounded border px-2 py-2 text-sm">
+                        <option value="mg">mg</option>
+                        <option value="mcg">mcg</option>
+                      </select>
+                    </div>
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Recon volume (ml)
+                    <input name="recon_volume_ml" type="number" step="0.01" className="rounded border px-3 py-2" required />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Desired dose
+                    <div className="flex gap-2">
+                      <input name="desired_dose" type="number" step="0.01" className="w-full rounded border px-3 py-2" required />
+                      <select name="desired_dose_unit" className="rounded border px-2 py-2 text-sm">
+                        <option value="mcg">mcg</option>
+                        <option value="mg">mg</option>
+                      </select>
+                    </div>
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Frequency
+                    <input name="frequency" className="rounded border px-3 py-2" placeholder="daily / 2x weekly" />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Timing
+                    <input name="timing" className="rounded border px-3 py-2" placeholder="morning / bedtime" />
+                  </label>
+                </div>
+                <button className="w-fit rounded bg-black px-3 py-2 text-sm text-white">Add peptide</button>
+                <p className="text-xs text-neutral-600">Next: live vial math preview + edit. For now, calculations are stored automatically.</p>
+              </form>
+
+              <PeptideList selectedDate={selectedDate} />
+            </div>
           ) : (
             <div className="space-y-2">
               <h2 className="text-lg font-semibold">{tab}</h2>
-              <p className="text-sm text-neutral-600">
-                UI coming next. Backend tables + RLS are ready.
-              </p>
+              <p className="text-sm text-neutral-600">UI coming next. Backend tables + RLS are ready.</p>
             </div>
           )}
         </div>

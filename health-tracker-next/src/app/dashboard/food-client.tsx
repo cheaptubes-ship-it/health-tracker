@@ -14,13 +14,16 @@ type Estimate = {
 }
 
 type AddFoodAction = (formData: FormData) => Promise<void>
+type SaveFavoriteAction = (formData: FormData) => Promise<void>
 
 export function FoodClient({
   selectedDate,
   addFoodAction,
+  saveFavoriteAction,
 }: {
   selectedDate: string
   addFoodAction: AddFoodAction
+  saveFavoriteAction: SaveFavoriteAction
 }) {
   const [estimate, setEstimate] = useState<Estimate | null>(null)
 
@@ -139,13 +142,31 @@ export function FoodClient({
                       <div className="text-xs text-neutral-500">Serving: {r.serving}</div>
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    className="rounded bg-black px-3 py-2 text-sm text-white"
-                    onClick={() => applyDbItem(r)}
-                  >
-                    Use
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="rounded bg-black px-3 py-2 text-sm text-white"
+                      onClick={() => applyDbItem(r)}
+                    >
+                      Use
+                    </button>
+                    <form action={saveFavoriteAction}>
+                      <input type="hidden" name="name" value={r.name} />
+                      <input type="hidden" name="calories" value={r.per100g.calories ?? ''} />
+                      <input type="hidden" name="protein_g" value={r.per100g.protein_g ?? ''} />
+                      <input type="hidden" name="carbs_g" value={r.per100g.carbs_g ?? ''} />
+                      <input type="hidden" name="fat_g" value={r.per100g.fat_g ?? ''} />
+                      <input type="hidden" name="serving" value={r.serving ?? ''} />
+                      <button
+                        className="rounded border px-3 py-2 text-sm hover:bg-neutral-50"
+                        type="submit"
+                        disabled={r.per100g.calories == null}
+                        title={r.per100g.calories == null ? 'Missing calories data' : ''}
+                      >
+                        Favorite
+                      </button>
+                    </form>
+                  </div>
                 </div>
               </li>
             ))}
