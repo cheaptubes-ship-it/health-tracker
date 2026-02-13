@@ -1,6 +1,14 @@
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { addWeight } from './server-actions'
+import {
+  addFood,
+  addFoodFromFavorite,
+  addWeight,
+  deleteFood,
+  saveFavoriteFromFood,
+  saveMacroTargets,
+} from './server-actions'
+import { FoodPhotoUploader } from './food-photo-uploader'
 
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10)
@@ -30,12 +38,11 @@ export default async function DashboardPage({
     )
   }
 
-  // Daily totals
   const [{ data: food }, { data: vitals }, { data: peptides }, { data: weights }] =
     await Promise.all([
       supabase
         .from('food_entries')
-        .select('calories, protein_g, carbs_g, fat_g')
+        .select('id, name, calories, protein_g, carbs_g, fat_g, created_at, source')
         .eq('entry_date', selectedDate)
         .order('created_at', { ascending: false }),
       supabase
@@ -54,6 +61,17 @@ export default async function DashboardPage({
         .order('entry_date', { ascending: false })
         .limit(1),
     ])
+
+  const { data: favorites } = await supabase
+    .from('favorite_foods')
+    .select('id, name, calories, protein_g, carbs_g, fat_g')
+    .order('created_at', { ascending: false })
+    .limit(30)
+
+  const { data: targets } = await supabase
+    .from('macro_targets')
+    .select('calories, protein_g, carbs_g, fat_g')
+    .maybeSingle()
 
   const totals = {
     calories: (food ?? []).reduce((s, f) => s + Number(f.calories ?? 0), 0),
@@ -78,6 +96,18 @@ export default async function DashboardPage({
           )
         : null,
     lastWeight: weights?.[0]?.weight_lbs ?? null,
+  }
+
+  const remaining = {
+    calories:
+      targets?.calories != null ? Math.max(0, targets.calories - totals.calories) : null,
+    protein:
+      targets?.protein_g != null
+        ? Math.max(0, targets.protein_g - totals.protein)
+        : null,
+    carbs:
+      targets?.carbs_g != null ? Math.max(0, targets.carbs_g - totals.carbs) : null,
+    fat: targets?.fat_g != null ? Math.max(0, targets.fat_g - totals.fat) : null,
   }
 
   const tabs: Array<{ id: string; label: string }> = [
@@ -112,6 +142,11 @@ export default async function DashboardPage({
               <div className="text-xs text-neutral-600">
                 P {totals.protein} / C {totals.carbs} / F {totals.fat}
               </div>
+              {targets?.calories != null ? (
+                <div className="text-xs text-neutral-500">
+                  Remaining: {remaining.calories}
+                </div>
+              ) : null}
             </div>
             <div>
               <div className="text-xs text-neutral-500">Peptides taken</div>
@@ -144,11 +179,7 @@ export default async function DashboardPage({
             <div>
               <div className="text-xs text-neutral-500">Date</div>
               <form>
-                <input
-                  type="hidden"
-                  name="tab"
-                  value={tab}
-                />
+                <input type="hidden" name="tab" value={tab} />
                 <input
                   className="rounded border px-3 py-2 text-sm"
                   type="date"
@@ -180,7 +211,159 @@ export default async function DashboardPage({
         </nav>
 
         <div className="rounded-lg border p-4">
-          {tab === 'weight' ? (
+          {tab === 'food' ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Food</h2>
+                <FoodPhotoUploader
+                  onEstimate={() => {
+                    // This handler is client-side only; estimate is applied via form defaults in the client in next iteration.
+                    // For now: users can read estimate in devtools response; saving UI is next.
+                  }}
+                />
+              </div>
+
+              {favorites && favorites.length ? (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Favorites</div>
+                  <div className="flex flex-wrap gap-2">
+                    {favorites.map((f) => (
+                      <form key={f.id} action={addFoodFromFavorite}>
+                        <input type="hidden" name="entry_date" value={selectedDate} />
+                        <input type="hidden" name="favorite_id" value={f.id} />
+                        <button className="rounded-full border px-3 py-1 text-sm hover:bg-neutral-50">
+                          {f.name}
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <form
+                action={addFood}
+                className="grid gap-3 rounded-lg border bg-neutral-50 p-4"
+              >
+                <input type="hidden" name="entry_date" value={selectedDate} />
+                <input type="hidden" name="source" value="manual" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm">
+                    Name
+                    <input
+                      name="name"
+                      className="rounded border px-3 py-2"
+                      placeholder="e.g. Chicken burrito"
+                      required
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Calories
+                    <input
+                      name="calories"
+                      type="number"
+                      step="1"
+                      className="rounded border px-3 py-2"
+                      required
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Protein (g)
+                    <input
+                      name="protein_g"
+                      type="number"
+                      step="0.1"
+                      className="rounded border px-3 py-2"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Carbs (g)
+                    <input
+                      name="carbs_g"
+                      type="number"
+                      step="0.1"
+                      className="rounded border px-3 py-2"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Fat (g)
+                    <input
+                      name="fat_g"
+                      type="number"
+                      step="0.1"
+                      className="rounded border px-3 py-2"
+                    />
+                  </label>
+                </div>
+                <button className="w-fit rounded bg-black px-3 py-2 text-sm text-white">
+                  Add food
+                </button>
+              </form>
+
+              <div className="rounded-lg border p-4">
+                <div className="flex items-baseline justify-between">
+                  <h3 className="font-medium">Entries ({food?.length ?? 0})</h3>
+                  <p className="text-xs text-neutral-500">{selectedDate}</p>
+                </div>
+                {food && food.length ? (
+                  <ul className="mt-3 divide-y">
+                    {food.map((e) => (
+                      <li key={e.id} className="py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-medium">{e.name}</div>
+                            <div className="text-sm text-neutral-700">
+                              {Number(e.calories)} cal • P {Number(e.protein_g)} / C{' '}
+                              {Number(e.carbs_g)} / F {Number(e.fat_g)}
+                              <span className="ml-2 text-xs text-neutral-500">
+                                ({e.source})
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <form action={saveFavoriteFromFood}>
+                              <input type="hidden" name="name" value={e.name} />
+                              <input type="hidden" name="calories" value={String(e.calories)} />
+                              <input type="hidden" name="protein_g" value={String(e.protein_g)} />
+                              <input type="hidden" name="carbs_g" value={String(e.carbs_g)} />
+                              <input type="hidden" name="fat_g" value={String(e.fat_g)} />
+                              <button className="rounded border px-2 py-1 text-xs hover:bg-neutral-50">
+                                Favorite
+                              </button>
+                            </form>
+                            <form action={deleteFood}>
+                              <input type="hidden" name="id" value={e.id} />
+                              <button className="rounded border px-2 py-1 text-xs hover:bg-neutral-50">
+                                Delete
+                              </button>
+                            </form>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-neutral-600">No food entries yet.</p>
+                )}
+              </div>
+
+              <div className="rounded-lg border p-4">
+                <h3 className="font-medium">Macro coach (v1)</h3>
+                {targets?.calories != null ? (
+                  <ul className="mt-2 list-disc pl-5 text-sm text-neutral-700">
+                    <li>Calories remaining: {remaining.calories}</li>
+                    <li>Protein remaining: {remaining.protein ?? '—'}</li>
+                    <li>Carbs remaining: {remaining.carbs ?? '—'}</li>
+                    <li>Fat remaining: {remaining.fat ?? '—'}</li>
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-neutral-600">
+                    Set macro targets in Settings to enable recommendations.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : tab === 'weight' ? (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Weight</h2>
               <form action={addWeight} className="flex gap-2">
@@ -198,16 +381,63 @@ export default async function DashboardPage({
                   Save
                 </button>
               </form>
+            </div>
+          ) : tab === 'settings' ? (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Settings</h2>
+              <form action={saveMacroTargets} className="grid gap-3 max-w-md">
+                <label className="grid gap-1 text-sm">
+                  Calories
+                  <input
+                    name="calories"
+                    type="number"
+                    className="rounded border px-3 py-2"
+                    defaultValue={targets?.calories ?? ''}
+                  />
+                </label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <label className="grid gap-1 text-sm">
+                    Protein (g)
+                    <input
+                      name="protein_g"
+                      type="number"
+                      className="rounded border px-3 py-2"
+                      defaultValue={targets?.protein_g ?? ''}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Carbs (g)
+                    <input
+                      name="carbs_g"
+                      type="number"
+                      className="rounded border px-3 py-2"
+                      defaultValue={targets?.carbs_g ?? ''}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Fat (g)
+                    <input
+                      name="fat_g"
+                      type="number"
+                      className="rounded border px-3 py-2"
+                      defaultValue={targets?.fat_g ?? ''}
+                    />
+                  </label>
+                </div>
+                <button className="w-fit rounded bg-black px-3 py-2 text-sm text-white">
+                  Save targets
+                </button>
+              </form>
               <p className="text-sm text-neutral-600">
-                Next: we’ll add the full Food/Peptides/Vitals UIs here.
+                Next: meal photo → estimate → edit → save, plus USDA/OpenFoodFacts
+                search.
               </p>
             </div>
           ) : (
             <div className="space-y-2">
               <h2 className="text-lg font-semibold">{tab}</h2>
               <p className="text-sm text-neutral-600">
-                I’m currently porting the full feature set (forms + lists + AI meal
-                estimate + favorites + macro coach). Weight is live first.
+                UI coming next. Backend tables + RLS are ready.
               </p>
             </div>
           )}
