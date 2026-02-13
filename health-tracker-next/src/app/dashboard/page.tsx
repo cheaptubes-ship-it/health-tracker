@@ -12,6 +12,7 @@ import {
 } from './server-actions'
 import { FoodClient } from './food-client'
 import { PeptideList } from './peptide-list'
+import { PeptidesClient } from './peptides-client'
 import { VitalsList } from './vitals-list'
 import { TrendsClient } from './trends-client'
 
@@ -536,49 +537,7 @@ export default async function DashboardPage({
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Peptides</h2>
 
-              <form action={addPeptide} className="grid gap-3 rounded-lg border bg-neutral-50 p-4">
-                <input type="hidden" name="entry_date" value={selectedDate} />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    Name
-                    <input name="name" className="rounded border px-3 py-2" placeholder="e.g. BPC-157" required />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Vial amount
-                    <div className="flex gap-2">
-                      <input name="vial_amount" type="number" step="0.01" className="w-full rounded border px-3 py-2" required />
-                      <select name="vial_unit" className="rounded border px-2 py-2 text-sm">
-                        <option value="mg">mg</option>
-                        <option value="mcg">mcg</option>
-                      </select>
-                    </div>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Recon volume (ml)
-                    <input name="recon_volume_ml" type="number" step="0.01" className="rounded border px-3 py-2" required />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Desired dose
-                    <div className="flex gap-2">
-                      <input name="desired_dose" type="number" step="0.01" className="w-full rounded border px-3 py-2" required />
-                      <select name="desired_dose_unit" className="rounded border px-2 py-2 text-sm">
-                        <option value="mcg">mcg</option>
-                        <option value="mg">mg</option>
-                      </select>
-                    </div>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Frequency
-                    <input name="frequency" className="rounded border px-3 py-2" placeholder="daily / 2x weekly" />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Timing
-                    <input name="timing" className="rounded border px-3 py-2" placeholder="morning / bedtime" />
-                  </label>
-                </div>
-                <button className="w-fit rounded bg-black px-3 py-2 text-sm text-white">Add peptide</button>
-                <p className="text-xs text-neutral-600">Next: live vial math preview + edit. For now, calculations are stored automatically.</p>
-              </form>
+              <PeptidesClient selectedDate={selectedDate} addPeptideAction={addPeptide} />
 
               <PeptideList selectedDate={selectedDate} />
             </div>
