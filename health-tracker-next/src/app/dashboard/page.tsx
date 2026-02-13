@@ -13,6 +13,7 @@ import {
 import { FoodClient } from './food-client'
 import { PeptideList } from './peptide-list'
 import { VitalsList } from './vitals-list'
+import { TrendsClient } from './trends-client'
 
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10)
@@ -113,6 +114,88 @@ export default async function DashboardPage({
       targets?.carbs_g != null ? Math.max(0, targets.carbs_g - totals.carbs) : null,
     fat: targets?.fat_g != null ? Math.max(0, targets.fat_g - totals.fat) : null,
   }
+
+  // Trends (last 30 days)
+  const days = 30
+  const today = new Date(selectedDate + 'T00:00:00')
+  const dayKeys: string[] = []
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    dayKeys.push(d.toISOString().slice(0, 10))
+  }
+
+  const [food30, vitals30, peptides30, weight30] = await Promise.all([
+    supabase
+      .from('food_entries')
+      .select('entry_date, calories')
+      .gte('entry_date', dayKeys[0])
+      .lte('entry_date', dayKeys[dayKeys.length - 1]),
+    supabase
+      .from('vitals_entries')
+      .select('entry_date, systolic, diastolic, pulse')
+      .gte('entry_date', dayKeys[0])
+      .lte('entry_date', dayKeys[dayKeys.length - 1]),
+    supabase
+      .from('peptide_entries')
+      .select('entry_date, actual_dose_mcg, status')
+      .eq('status', 'taken')
+      .gte('entry_date', dayKeys[0])
+      .lte('entry_date', dayKeys[dayKeys.length - 1]),
+    supabase
+      .from('weight_entries')
+      .select('entry_date, weight_lbs, created_at')
+      .gte('entry_date', dayKeys[0])
+      .lte('entry_date', dayKeys[dayKeys.length - 1])
+      .order('created_at', { ascending: true }),
+  ])
+
+  const caloriesByDay = new Map<string, number>()
+  for (const r of food30.data ?? []) {
+    caloriesByDay.set(
+      r.entry_date,
+      (caloriesByDay.get(r.entry_date) ?? 0) + Number(r.calories ?? 0)
+    )
+  }
+
+  const vitalsAgg = new Map<
+    string,
+    { n: number; sys: number; dia: number; pulse: number }
+  >()
+  for (const r of vitals30.data ?? []) {
+    const cur = vitalsAgg.get(r.entry_date) ?? { n: 0, sys: 0, dia: 0, pulse: 0 }
+    cur.n += 1
+    cur.sys += r.systolic
+    cur.dia += r.diastolic
+    cur.pulse += Number(r.pulse ?? 0)
+    vitalsAgg.set(r.entry_date, cur)
+  }
+
+  const peptideByDay = new Map<string, number>()
+  for (const r of peptides30.data ?? []) {
+    peptideByDay.set(
+      r.entry_date,
+      (peptideByDay.get(r.entry_date) ?? 0) + Number(r.actual_dose_mcg ?? 0)
+    )
+  }
+
+  const weightByDay = new Map<string, number>()
+  for (const r of weight30.data ?? []) {
+    weightByDay.set(r.entry_date, Number(r.weight_lbs))
+  }
+
+  const trendsPoints = dayKeys.map((k) => {
+    const v = vitalsAgg.get(k)
+    return {
+      date: k.slice(5),
+      calories: caloriesByDay.get(k) ?? null,
+      weight: weightByDay.get(k) ?? null,
+      systolic: v ? Math.round(v.sys / v.n) : null,
+      diastolic: v ? Math.round(v.dia / v.n) : null,
+      pulse: v ? Math.round(v.pulse / v.n) : null,
+      peptide_mcg: peptideByDay.get(k) ?? null,
+    }
+  })
 
   const tabs: Array<{ id: string; label: string }> = [
     { id: 'food', label: 'Food' },
@@ -443,6 +526,11 @@ export default async function DashboardPage({
                 Next: meal photo → estimate → edit → save, plus USDA/OpenFoodFacts
                 search.
               </p>
+            </div>
+          ) : tab === 'trends' ? (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Trends (last 30 days)</h2>
+              <TrendsClient points={trendsPoints} />
             </div>
           ) : tab === 'peptides' ? (
             <div className="space-y-4">
