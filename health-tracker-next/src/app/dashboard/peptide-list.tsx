@@ -6,7 +6,7 @@ export async function PeptideList({ selectedDate }: { selectedDate: string }) {
   const { data: rows, error } = await supabase
     .from('peptide_entries')
     .select(
-      'id, name, desired_dose, desired_dose_unit, syringe_units, status, created_at, taken_at'
+      'id, name, desired_dose, desired_dose_unit, syringe_units, status, note, side_effect_tags, side_effect_note, created_at, taken_at'
     )
     .eq('entry_date', selectedDate)
     .order('created_at', { ascending: false })
@@ -34,6 +34,21 @@ export async function PeptideList({ selectedDate }: { selectedDate: string }) {
                     {e.syringe_units ? Number(e.syringe_units).toFixed(1) : '—'}
                     <span className="ml-2 text-xs text-neutral-500">({e.status})</span>
                   </div>
+                  {e.note ? (
+                    <div className="mt-1 whitespace-pre-wrap text-xs text-slate-300">{e.note}</div>
+                  ) : null}
+
+                  {e.side_effect_tags?.length || e.side_effect_note ? (
+                    <div className="mt-2 text-xs text-slate-300">
+                      <span className="text-slate-400">Side effects:</span>{' '}
+                      {Array.isArray(e.side_effect_tags) && e.side_effect_tags.length
+                        ? e.side_effect_tags.join(', ')
+                        : null}
+                      {e.side_effect_note ? (
+                        <span className="ml-2 whitespace-pre-wrap text-slate-200">{e.side_effect_note}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {e.taken_at ? (
                     <div className="text-xs text-neutral-500">
                       Taken: {new Date(e.taken_at).toLocaleString()}

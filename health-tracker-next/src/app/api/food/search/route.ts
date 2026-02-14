@@ -9,10 +9,15 @@ const ItemSchema = z.object({
   serving_size: z.string().optional(),
   nutriments: z
     .object({
-      energy_kcal_100g: z.number().optional(),
-      proteins_100g: z.number().optional(),
-      carbohydrates_100g: z.number().optional(),
-      fat_100g: z.number().optional(),
+      energy_kcal_100g: z.coerce.number().optional(),
+      proteins_100g: z.coerce.number().optional(),
+      carbohydrates_100g: z.coerce.number().optional(),
+      fat_100g: z.coerce.number().optional(),
+      // when OpenFoodFacts provides per-serving values (often strings)
+      energy_kcal_serving: z.coerce.number().optional(),
+      proteins_serving: z.coerce.number().optional(),
+      carbohydrates_serving: z.coerce.number().optional(),
+      fat_serving: z.coerce.number().optional(),
     })
     .optional(),
 })
@@ -66,20 +71,40 @@ export async function GET(req: Request) {
     const brand = p.brands?.trim() || null
     const serving = p.serving_size?.trim() || null
     const n = p.nutriments || {}
-    const calories = n.energy_kcal_100g ?? null
-    const protein_g = n.proteins_100g ?? null
-    const carbs_g = n.carbohydrates_100g ?? null
-    const fat_g = n.fat_100g ?? null
+
+    const per100g = {
+      calories: n.energy_kcal_100g ?? null,
+      protein_g: n.proteins_100g ?? null,
+      carbs_g: n.carbohydrates_100g ?? null,
+      fat_g: n.fat_100g ?? null,
+    }
+
+    const perServing = {
+      calories: n.energy_kcal_serving ?? null,
+      protein_g: n.proteins_serving ?? null,
+      carbs_g: n.carbohydrates_serving ?? null,
+      fat_g: n.fat_serving ?? null,
+    }
+
+    // If calories missing but macros present, estimate calories from macros
+    function estimateCals(x: { calories: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null }) {
+      if (x.calories != null) return x
+      const p = x.protein_g ?? 0
+      const c = x.carbs_g ?? 0
+      const f = x.fat_g ?? 0
+      const hasAny = (x.protein_g != null) || (x.carbs_g != null) || (x.fat_g != null)
+      if (!hasAny) return x
+      return { ...x, calories: Math.round(p * 4 + c * 4 + f * 9) }
+    }
+
+    const per100g2 = estimateCals(per100g)
+    const perServing2 = estimateCals(perServing)
 
     return {
       name: brand ? `${name} (${brand})` : name,
       serving,
-      per100g: {
-        calories,
-        protein_g,
-        carbs_g,
-        fat_g,
-      },
+      per100g: per100g2,
+      perServing: perServing2,
     }
   })
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { FoodPhotoUploader } from './food-photo-uploader'
 
 type Estimate = {
@@ -13,19 +14,14 @@ type Estimate = {
   notes?: string
 }
 
-type AddFoodAction = (formData: FormData) => Promise<void>
-type SaveFavoriteAction = (formData: FormData) => Promise<void>
-
 export function FoodClient({
   selectedDate,
-  addFoodAction,
-  saveFavoriteAction,
 }: {
   selectedDate: string
-  addFoodAction: AddFoodAction
-  saveFavoriteAction: SaveFavoriteAction
 }) {
+  const router = useRouter()
   const [estimate, setEstimate] = useState<Estimate | null>(null)
+  const [addBusy, setAddBusy] = useState(false)
 
   const defaults = useMemo(() => {
     if (!estimate) return null
@@ -45,15 +41,24 @@ export function FoodClient({
   const [carbs, setCarbs] = useState('')
   const [fat, setFat] = useState('')
   const [source, setSource] = useState<'manual' | 'ai_photo' | 'db'>('manual')
+  const [note, setNote] = useState('')
 
   const [q, setQ] = useState('')
   const [searchBusy, setSearchBusy] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [savedFavs, setSavedFavs] = useState<Set<string>>(() => new Set())
   const [results, setResults] = useState<
     Array<{
       name: string
       serving: string | null
       per100g: {
+        calories: number | null
+        protein_g: number | null
+        carbs_g: number | null
+        fat_g: number | null
+      }
+      perServing?: {
         calories: number | null
         protein_g: number | null
         carbs_g: number | null
@@ -83,9 +88,13 @@ export function FoodClient({
 
   const [dbBase, setDbBase] = useState<{
     per100g: { calories: number; protein_g: number; carbs_g: number; fat_g: number }
+    perServing: { calories: number; protein_g: number; carbs_g: number; fat_g: number } | null
     serving: string | null
+    servingGrams: number | null
+    mode: 'perServing' | 'per100g'
   } | null>(null)
   const [grams, setGrams] = useState('100')
+  const [servings, setServings] = useState('1')
 
   function parseServingGrams(serving: string | null) {
     if (!serving) return null
@@ -96,31 +105,80 @@ export function FoodClient({
     return Number.isFinite(num) ? num : null
   }
 
+  function parseServingMl(serving: string | null) {
+    if (!serving) return null
+    const m = serving.toLowerCase().match(/(\d+(?:\.\d+)?)\s*ml\b/)
+    if (!m) return null
+    const num = Number(m[1])
+    return Number.isFinite(num) ? num : null
+  }
+
   function applyDbItem(item: {
     name: string
     serving: string | null
     per100g: { calories: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null }
+    perServing?: { calories: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null }
   }) {
     setName(item.name)
 
-    const base = {
+    const fromServing =
+      item.perServing &&
+      (item.perServing.calories != null ||
+        item.perServing.protein_g != null ||
+        item.perServing.carbs_g != null ||
+        item.perServing.fat_g != null)
+        ? {
+            calories: Number(item.perServing.calories ?? 0),
+            protein_g: Number(item.perServing.protein_g ?? 0),
+            carbs_g: Number(item.perServing.carbs_g ?? 0),
+            fat_g: Number(item.perServing.fat_g ?? 0),
+          }
+        : null
+
+    const per100g = {
       calories: Number(item.per100g.calories ?? 0),
       protein_g: Number(item.per100g.protein_g ?? 0),
       carbs_g: Number(item.per100g.carbs_g ?? 0),
       fat_g: Number(item.per100g.fat_g ?? 0),
     }
 
-    setDbBase({ per100g: base, serving: item.serving })
+    const servingGrams = parseServingGrams(item.serving) ?? parseServingMl(item.serving) ?? null
 
-    const g = parseServingGrams(item.serving) ?? 100
+    if (fromServing) {
+      setDbBase({
+        per100g,
+        perServing: fromServing,
+        serving: item.serving,
+        servingGrams,
+        mode: 'perServing',
+      })
+      setServings('1')
+      if (servingGrams != null) setGrams(String(servingGrams))
+
+      // Per-serving (good for packaged items) — allow scaling by servings.
+      setCalories(String(Math.round(fromServing.calories)))
+      setProtein(String(Number(fromServing.protein_g.toFixed(1))))
+      setCarbs(String(Number(fromServing.carbs_g.toFixed(1))))
+      setFat(String(Number(fromServing.fat_g.toFixed(1))))
+      setSource('db')
+      setNotice('Using per-serving macros (adjust servings/grams)')
+      return
+    }
+
+    setDbBase({ per100g, perServing: null, serving: item.serving, servingGrams, mode: 'per100g' })
+    setServings('1')
+
+    // Default: per-100g scaled by serving grams
+    const g = parseServingGrams(item.serving) ?? parseServingMl(item.serving) ?? 100
     setGrams(String(g))
 
     const mult = g / 100
-    setCalories(String(Math.round(base.calories * mult)))
-    setProtein(String(Number((base.protein_g * mult).toFixed(1))))
-    setCarbs(String(Number((base.carbs_g * mult).toFixed(1))))
-    setFat(String(Number((base.fat_g * mult).toFixed(1))))
+    setCalories(String(Math.round(per100g.calories * mult)))
+    setProtein(String(Number((per100g.protein_g * mult).toFixed(1))))
+    setCarbs(String(Number((per100g.carbs_g * mult).toFixed(1))))
+    setFat(String(Number((per100g.fat_g * mult).toFixed(1))))
     setSource('db')
+    setNotice('Using per-100g macros (scaled)')
   }
 
   function useEstimate() {
@@ -135,12 +193,15 @@ export function FoodClient({
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-4 rounded-lg border bg-white p-4">
+      <div className="grid gap-4 rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+        <p className="text-xs text-slate-400">
+          Note: OpenFoodFacts values can be per-100g. If a serving is shown, adjust grams in the form.
+        </p>
         <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
           <label className="grid gap-1 text-sm">
             Search foods (OpenFoodFacts)
             <input
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="e.g. greek yogurt"
@@ -150,51 +211,91 @@ export function FoodClient({
             type="button"
             onClick={search}
             disabled={searchBusy}
-            className="h-10 rounded border px-3 text-sm hover:bg-neutral-50 disabled:opacity-50"
+            className="h-10 rounded-lg border border-slate-700 bg-slate-950/30 px-3 text-sm text-slate-100 hover:bg-slate-900 disabled:opacity-50"
           >
             {searchBusy ? 'Searching…' : 'Search'}
           </button>
         </div>
-        {searchError ? <p className="text-sm text-red-600">{searchError}</p> : null}
+        {notice ? <p className="text-sm text-emerald-400">{notice}</p> : null}
+        {searchError ? <p className="text-sm text-red-400">{searchError}</p> : null}
         {results.length ? (
           <ul className="grid gap-2">
             {results.map((r, idx) => (
-              <li key={idx} className="rounded border p-3">
+              <li key={idx} className="rounded-lg border border-slate-800 bg-slate-950/10 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-medium">{r.name}</div>
-                    <div className="text-xs text-neutral-600">
+                    {r.perServing && (r.perServing.calories != null || r.perServing.protein_g != null || r.perServing.carbs_g != null || r.perServing.fat_g != null) ? (
+                      <div className="text-xs text-slate-200">
+                        Per serving: {r.perServing.calories ?? '—'} cal • P {r.perServing.protein_g ?? '—'} / C{' '}
+                        {r.perServing.carbs_g ?? '—'} / F {r.perServing.fat_g ?? '—'}
+                      </div>
+                    ) : null}
+                    <div className="text-xs text-slate-300">
                       Per 100g: {r.per100g.calories ?? '—'} cal • P {r.per100g.protein_g ?? '—'} / C{' '}
                       {r.per100g.carbs_g ?? '—'} / F {r.per100g.fat_g ?? '—'}
                     </div>
                     {r.serving ? (
-                      <div className="text-xs text-neutral-500">Serving: {r.serving}</div>
-                    ) : null}
+  <div className="text-xs text-slate-400">
+    {r.serving.toLowerCase().includes('bottle') ? 'Bottle' : 'Serving'}: {r.serving}
+  </div>
+) : null}
                   </div>
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      className="rounded bg-black px-3 py-2 text-sm text-white"
+                      className="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400"
                       onClick={() => applyDbItem(r)}
                     >
                       Use
                     </button>
-                    <form action={saveFavoriteAction}>
-                      <input type="hidden" name="name" value={r.name} />
-                      <input type="hidden" name="calories" value={r.per100g.calories ?? ''} />
-                      <input type="hidden" name="protein_g" value={r.per100g.protein_g ?? ''} />
-                      <input type="hidden" name="carbs_g" value={r.per100g.carbs_g ?? ''} />
-                      <input type="hidden" name="fat_g" value={r.per100g.fat_g ?? ''} />
-                      <input type="hidden" name="serving" value={r.serving ?? ''} />
-                      <button
-                        className="rounded border px-3 py-2 text-sm hover:bg-neutral-50"
-                        type="submit"
-                        disabled={r.per100g.calories == null}
-                        title={r.per100g.calories == null ? 'Missing calories data' : ''}
-                      >
-                        Favorite
-                      </button>
-                    </form>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50 disabled:opacity-50"
+                      disabled={
+                        savedFavs.has(r.name) ||
+                        (r.per100g.calories == null &&
+                          r.perServing?.calories == null &&
+                          r.per100g.protein_g == null &&
+                          r.per100g.carbs_g == null &&
+                          r.per100g.fat_g == null &&
+                          r.perServing?.protein_g == null &&
+                          r.perServing?.carbs_g == null &&
+                          r.perServing?.fat_g == null)
+                      }
+                      title={savedFavs.has(r.name) ? 'Saved' : ''}
+                      onClick={async () => {
+                        try {
+                          setSearchError(null)
+                          setNotice(null)
+                          const best =
+                            r.perServing && (r.perServing.calories != null || r.perServing.protein_g != null)
+                              ? r.perServing
+                              : r.per100g
+                          const res = await fetch('/api/favorites', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({
+                              name: r.name,
+                              calories: best.calories,
+                              protein_g: best.protein_g,
+                              carbs_g: best.carbs_g,
+                              fat_g: best.fat_g,
+                              serving: r.serving,
+                            }),
+                          })
+                          const json = await res.json().catch(() => null)
+                          if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to save favorite')
+                          setSavedFavs((prev) => new Set(prev).add(r.name))
+                          setNotice('★ Saved to favorites')
+                          router.refresh()
+                        } catch (e) {
+                          setSearchError(e instanceof Error ? e.message : String(e))
+                        }
+                      }}
+                    >
+                      {savedFavs.has(r.name) ? '★ Saved' : '★ Favorite'}
+                    </button>
                   </div>
                 </div>
               </li>
@@ -206,28 +307,28 @@ export function FoodClient({
       <FoodPhotoUploader onEstimate={setEstimate} />
 
       {estimate ? (
-        <div className="rounded-lg border bg-white p-3">
+        <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">AI estimate</div>
-              <div className="text-sm text-neutral-700">
+              <div className="text-sm text-slate-200">
                 <div className="font-medium">{estimate.name}</div>
                 <div>
                   {Math.round(estimate.calories)} cal • P {estimate.protein_g} / C{' '}
                   {estimate.carbs_g} / F {estimate.fat_g}
                 </div>
                 {estimate.confidence != null ? (
-                  <div className="text-xs text-neutral-500">
+                  <div className="text-xs text-slate-400">
                     Confidence: {Math.round(estimate.confidence * 100)}%
                   </div>
                 ) : null}
                 {estimate.notes ? (
-                  <div className="mt-1 text-xs text-neutral-500">{estimate.notes}</div>
+                  <div className="mt-1 text-xs text-slate-400">{estimate.notes}</div>
                 ) : null}
               </div>
             </div>
             <button
-              className="rounded border px-2 py-1 text-xs hover:bg-neutral-50"
+              className="rounded-lg border border-slate-700 bg-slate-950/30 px-2 py-1 text-xs text-slate-100 hover:bg-slate-900/50"
               onClick={() => setEstimate(null)}
               type="button"
             >
@@ -237,13 +338,13 @@ export function FoodClient({
           <div className="mt-3 flex gap-2">
             <button
               type="button"
-              className="rounded bg-black px-3 py-2 text-sm text-white"
+              className="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400"
               onClick={useEstimate}
             >
               Use estimate
             </button>
             <button
-              className="rounded border px-3 py-2 text-sm hover:bg-neutral-50"
+              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
               onClick={() => setEstimate(null)}
               type="button"
             >
@@ -254,53 +355,143 @@ export function FoodClient({
       ) : null}
 
       <form
-        action={addFoodAction}
-        className="grid gap-3 rounded-lg border bg-neutral-50 p-4"
+        onSubmit={async (e) => {
+          e.preventDefault()
+          if (addBusy) return
+          setAddBusy(true)
+          try {
+            const res = await fetch('/api/food/entry', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                entry_date: selectedDate,
+                source,
+                name,
+                calories,
+                protein_g: protein,
+                carbs_g: carbs,
+                fat_g: fat,
+                note,
+              }),
+            })
+            const json = await res.json().catch(() => null)
+            if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to add food')
+
+            // Keep the values in place (less "glitchy"), but clear the AI card.
+            setEstimate(null)
+            setNotice('Added')
+            router.refresh()
+          } catch (err) {
+            setSearchError(err instanceof Error ? err.message : String(err))
+          } finally {
+            setAddBusy(false)
+          }
+        }}
+        className="grid gap-3 rounded-xl border border-slate-800 bg-slate-950/20 p-4"
       >
         <input type="hidden" name="entry_date" value={selectedDate} />
         <input type="hidden" name="source" value={source} />
 
         {source === 'db' ? (
-          <div className="rounded border bg-white p-3">
+          <div className="rounded-lg border border-slate-800 bg-slate-950/20 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold">Serving math</div>
-                <div className="text-xs text-neutral-600">
-                  OpenFoodFacts macros are usually per 100g. Pick grams to scale.
-                  {dbBase?.serving ? ` Serving: ${dbBase.serving}` : ''}
+                <div className="text-sm font-semibold">
+                  {dbBase?.mode === 'perServing' ? 'Bottle macros' : 'Serving math'}
+                </div>
+                <div className="text-xs text-slate-300">
+                  {dbBase?.mode === 'perServing'
+                    ? 'Using per-bottle (per-serving) values from OpenFoodFacts.'
+                    : 'OpenFoodFacts macros are usually per 100g. Pick grams to scale.'}
+                  {dbBase?.serving ? ` ${dbBase.serving}` : ''}
                 </div>
               </div>
-              <label className="grid gap-1 text-sm">
-                Grams
-                <input
-                  className="w-28 rounded border px-3 py-2"
-                  type="number"
-                  step="1"
-                  min={0}
-                  value={grams}
-                  onChange={(e) => {
-                    const g = e.target.value
-                    setGrams(g)
-                    const num = Number(g)
-                    if (!dbBase || !Number.isFinite(num)) return
-                    const mult = num / 100
-                    setCalories(String(Math.round(dbBase.per100g.calories * mult)))
-                    setProtein(String(Number((dbBase.per100g.protein_g * mult).toFixed(1))))
-                    setCarbs(String(Number((dbBase.per100g.carbs_g * mult).toFixed(1))))
-                    setFat(String(Number((dbBase.per100g.fat_g * mult).toFixed(1))))
-                  }}
-                />
-              </label>
+              {dbBase?.mode === 'per100g' ? (
+                <label className="grid gap-1 text-sm text-slate-200">
+                  Grams
+                  <input
+                    className="w-28 rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    type="number"
+                    step="1"
+                    min={0}
+                    value={grams}
+                    onChange={(e) => {
+                      const g = e.target.value
+                      setGrams(g)
+                      const num = Number(g)
+                      if (!dbBase || !Number.isFinite(num)) return
+                      const mult = num / 100
+                      setCalories(String(Math.round(dbBase.per100g.calories * mult)))
+                      setProtein(String(Number((dbBase.per100g.protein_g * mult).toFixed(1))))
+                      setCarbs(String(Number((dbBase.per100g.carbs_g * mult).toFixed(1))))
+                      setFat(String(Number((dbBase.per100g.fat_g * mult).toFixed(1))))
+                    }}
+                  />
+                </label>
+              ) : dbBase?.mode === 'perServing' ? (
+                <div className="flex flex-wrap items-end gap-3">
+                  <label className="grid gap-1 text-sm text-slate-200">
+                    Servings
+                    <input
+                      className="w-24 rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      type="number"
+                      step="0.1"
+                      min={0}
+                      value={servings}
+                      onChange={(e) => {
+                        const s = e.target.value
+                        setServings(s)
+                        const num = Number(s)
+                        if (!dbBase?.perServing || !Number.isFinite(num)) return
+                        setCalories(String(Math.round(dbBase.perServing.calories * num)))
+                        setProtein(String(Number((dbBase.perServing.protein_g * num).toFixed(1))))
+                        setCarbs(String(Number((dbBase.perServing.carbs_g * num).toFixed(1))))
+                        setFat(String(Number((dbBase.perServing.fat_g * num).toFixed(1))))
+                        if (dbBase.servingGrams != null) setGrams(String(Math.round(dbBase.servingGrams * num)))
+                      }}
+                    />
+                  </label>
+
+                  {dbBase.servingGrams != null ? (
+                    <label className="grid gap-1 text-sm text-slate-200">
+                      Grams
+                      <input
+                        className="w-24 rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        type="number"
+                        step="1"
+                        min={0}
+                        value={grams}
+                        onChange={(e) => {
+                          const g = e.target.value
+                          setGrams(g)
+                          const num = Number(g)
+                          if (!dbBase?.perServing || dbBase.servingGrams == null || !Number.isFinite(num)) return
+                          const s = num / dbBase.servingGrams
+                          setServings(String(Number(s.toFixed(2))))
+                          setCalories(String(Math.round(dbBase.perServing.calories * s)))
+                          setProtein(String(Number((dbBase.perServing.protein_g * s).toFixed(1))))
+                          setCarbs(String(Number((dbBase.perServing.carbs_g * s).toFixed(1))))
+                          setFat(String(Number((dbBase.perServing.fat_g * s).toFixed(1))))
+                        }}
+                      />
+                    </label>
+                  ) : (
+                    <div className="text-xs text-slate-400">(No serving grams provided)</div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-400">—</div>
+              )}
             </div>
           </div>
         ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Name
             <input
               name="name"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="e.g. Chicken burrito"
               required
               value={name}
@@ -310,13 +501,13 @@ export function FoodClient({
               }}
             />
           </label>
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Calories
             <input
               name="calories"
               type="number"
               step="1"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
               value={calories}
               onChange={(e) => {
@@ -325,13 +516,13 @@ export function FoodClient({
               }}
             />
           </label>
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Protein (g)
             <input
               name="protein_g"
               type="number"
               step="0.1"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={protein}
               onChange={(e) => {
                 setProtein(e.target.value)
@@ -339,13 +530,13 @@ export function FoodClient({
               }}
             />
           </label>
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Carbs (g)
             <input
               name="carbs_g"
               type="number"
               step="0.1"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={carbs}
               onChange={(e) => {
                 setCarbs(e.target.value)
@@ -353,13 +544,13 @@ export function FoodClient({
               }}
             />
           </label>
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Fat (g)
             <input
               name="fat_g"
               type="number"
               step="0.1"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={fat}
               onChange={(e) => {
                 setFat(e.target.value)
@@ -367,11 +558,26 @@ export function FoodClient({
               }}
             />
           </label>
+
+          <label className="grid gap-1 text-sm text-slate-200 sm:col-span-2">
+            Notes / ingredients (optional)
+            <textarea
+              name="note"
+              rows={3}
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="e.g. 1 Dave's thin, 1 slice American cheese, homemade chicken salad, pickles"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </label>
         </div>
-        <button className="w-fit rounded bg-black px-3 py-2 text-sm text-white">
-          Add food
+        <button
+          disabled={addBusy}
+          className="w-fit rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-50"
+        >
+          {addBusy ? 'Adding…' : 'Add food'}
         </button>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-slate-400">
           Source: <span className="font-mono">{source}</span>
         </p>
       </form>

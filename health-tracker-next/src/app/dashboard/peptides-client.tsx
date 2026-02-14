@@ -20,6 +20,20 @@ export function PeptidesClient({
   const [doseUnit, setDoseUnit] = useState<'mcg' | 'mg'>('mcg')
   const [frequency, setFrequency] = useState('')
   const [timing, setTiming] = useState('')
+  const [note, setNote] = useState('')
+  const [saveDefault, setSaveDefault] = useState(false)
+  const [defaultLoading, setDefaultLoading] = useState(false)
+  const [takenNow, setTakenNow] = useState(false)
+  const [sideEffectNote, setSideEffectNote] = useState('')
+  const [sideEffectTags, setSideEffectTags] = useState<string[]>([])
+
+  const commonSideEffects = [
+    { id: 'pins_needles', label: 'Pins/needles' },
+    { id: 'sleep', label: 'Sleep issues' },
+    { id: 'anxiety', label: 'Anxiety/irritability' },
+    { id: 'headache', label: 'Headache' },
+    { id: 'gi', label: 'GI upset' },
+  ]
 
   const calc = useMemo(() => {
     const va = Number(vialAmount)
@@ -40,38 +54,52 @@ export function PeptidesClient({
     <div className="space-y-4">
       <form
         action={addPeptideAction}
-        className="grid gap-3 rounded-lg border bg-neutral-50 p-4"
+        className="grid gap-3 rounded-xl border border-slate-800 bg-slate-950/20 p-4"
       >
         <input type="hidden" name="entry_date" value={selectedDate} />
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Name
             <input
               name="name"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="e.g. BPC-157"
               required
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={async (e) => {
+                const next = e.target.value
+                setName(next)
+                // Fetch default note (normalized server-side) and prefill if memo is empty.
+                if (!next.trim()) return
+                if (note.trim()) return
+                try {
+                  setDefaultLoading(true)
+                  const res = await fetch(`/api/peptides/defaults?name=${encodeURIComponent(next)}`)
+                  const json = await res.json().catch(() => null)
+                  if (res.ok && json?.ok && json.default_note) setNote(String(json.default_note))
+                } finally {
+                  setDefaultLoading(false)
+                }
+              }}
             />
           </label>
 
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Vial amount
             <div className="flex gap-2">
               <input
                 name="vial_amount"
                 type="number"
                 step="0.01"
-                className="w-full rounded border px-3 py-2"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
                 value={vialAmount}
                 onChange={(e) => setVialAmount(e.target.value)}
               />
               <select
                 name="vial_unit"
-                className="rounded border px-2 py-2 text-sm"
+                className="rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={vialUnit}
                 onChange={(e) => setVialUnit(e.target.value as 'mg' | 'mcg')}
               >
@@ -81,34 +109,34 @@ export function PeptidesClient({
             </div>
           </label>
 
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Recon volume (ml)
             <input
               name="recon_volume_ml"
               type="number"
               step="0.01"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
               value={reconVolume}
               onChange={(e) => setReconVolume(e.target.value)}
             />
           </label>
 
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Desired dose
             <div className="flex gap-2">
               <input
                 name="desired_dose"
                 type="number"
                 step="0.01"
-                className="w-full rounded border px-3 py-2"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
                 value={dose}
                 onChange={(e) => setDose(e.target.value)}
               />
               <select
                 name="desired_dose_unit"
-                className="rounded border px-2 py-2 text-sm"
+                className="rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={doseUnit}
                 onChange={(e) => setDoseUnit(e.target.value as 'mcg' | 'mg')}
               >
@@ -118,22 +146,22 @@ export function PeptidesClient({
             </div>
           </label>
 
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Frequency
             <input
               name="frequency"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="daily / 2x weekly"
               value={frequency}
               onChange={(e) => setFrequency(e.target.value)}
             />
           </label>
 
-          <label className="grid gap-1 text-sm">
+          <label className="grid gap-1 text-sm text-slate-200">
             Timing
             <input
               name="timing"
-              className="rounded border px-3 py-2"
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="morning / bedtime"
               value={timing}
               onChange={(e) => setTiming(e.target.value)}
@@ -142,9 +170,9 @@ export function PeptidesClient({
         </div>
 
         {calc ? (
-          <div className="rounded-lg border bg-white p-3">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-3">
             <div className="text-sm font-semibold">Dose math</div>
-            <div className="mt-2 grid gap-2 text-sm text-neutral-700 sm:grid-cols-2">
+            <div className="mt-2 grid gap-2 text-sm text-slate-200 sm:grid-cols-2">
               <div>
                 Concentration:{' '}
                 <span className="font-mono">
@@ -162,12 +190,82 @@ export function PeptidesClient({
             </div>
           </div>
         ) : (
-          <div className="text-xs text-neutral-500">
+          <div className="text-xs text-slate-400">
             Fill vial amount, recon volume, and desired dose to see the syringe math.
           </div>
         )}
 
-        <button className="w-fit rounded bg-black px-3 py-2 text-sm text-white">
+        <div className="grid gap-2">
+          <label className="grid gap-1 text-sm text-slate-200">
+            Memo
+            <textarea
+              name="note"
+              rows={3}
+              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder={defaultLoading ? 'Loading default note…' : 'Optional notes for this entry'}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </label>
+
+          <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-3">
+            <div className="text-sm font-semibold text-slate-100">Side effects (optional)</div>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {commonSideEffects.map((se) => {
+                const checked = sideEffectTags.includes(se.id)
+                return (
+                  <label key={se.id} className="flex items-center gap-2 text-sm text-slate-200">
+                    <input
+                      type="checkbox"
+                      name="side_effect_tags"
+                      value={se.id}
+                      checked={checked}
+                      onChange={(e) => {
+                        if (e.target.checked) setSideEffectTags((prev) => [...prev, se.id])
+                        else setSideEffectTags((prev) => prev.filter((x) => x !== se.id))
+                      }}
+                    />
+                    {se.label}
+                  </label>
+                )
+              })}
+            </div>
+            <label className="mt-2 grid gap-1 text-sm text-slate-200">
+              Notes
+              <input
+                name="side_effect_note"
+                className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="e.g. pins/needles at higher dose"
+                value={sideEffectNote}
+                onChange={(e) => setSideEffectNote(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-sm text-slate-200">
+              <input
+                type="checkbox"
+                name="taken_now"
+                checked={takenNow}
+                onChange={(e) => setTakenNow(e.target.checked)}
+              />
+              Taken now
+            </label>
+
+            <label className="flex items-center gap-2 text-sm text-slate-200">
+              <input
+                type="checkbox"
+                name="save_default_note"
+                checked={saveDefault}
+                onChange={(e) => setSaveDefault(e.target.checked)}
+              />
+              Save this memo as the default for this peptide name
+            </label>
+          </div>
+        </div>
+
+        <button className="w-fit rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400">
           Add peptide
         </button>
       </form>

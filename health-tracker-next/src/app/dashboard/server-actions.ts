@@ -110,6 +110,21 @@ export async function saveFavoriteFromFood(formData: FormData) {
   revalidatePath('/dashboard')
 }
 
+export async function deleteFavorite(formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const id = String(formData.get('id') ?? '')
+  if (!id) return
+
+  const { error } = await supabase.from('favorite_foods').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
 export async function addFoodFromFavorite(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const {
@@ -119,7 +134,10 @@ export async function addFoodFromFavorite(formData: FormData) {
 
   const entry_date = String(formData.get('entry_date') ?? '').trim()
   const id = String(formData.get('favorite_id') ?? '')
+  const servingsRaw = String(formData.get('servings') ?? '1').trim()
+  const servings = Number(servingsRaw)
   if (!id) throw new Error('Missing favorite')
+  if (!Number.isFinite(servings) || servings <= 0) throw new Error('Invalid servings')
 
   const { data: fav, error: favErr } = await supabase
     .from('favorite_foods')
@@ -129,14 +147,16 @@ export async function addFoodFromFavorite(formData: FormData) {
 
   if (favErr) throw new Error(favErr.message)
 
+  const mult = servings
+
   const { error } = await supabase.from('food_entries').insert({
     user_id: user.id,
     entry_date: entry_date || undefined,
-    name: fav.name,
-    calories: fav.calories,
-    protein_g: fav.protein_g,
-    carbs_g: fav.carbs_g,
-    fat_g: fav.fat_g,
+    name: mult === 1 ? fav.name : `${fav.name} x${mult}`,
+    calories: Math.round(Number(fav.calories ?? 0) * mult),
+    protein_g: Number((Number(fav.protein_g ?? 0) * mult).toFixed(1)),
+    carbs_g: Number((Number(fav.carbs_g ?? 0) * mult).toFixed(1)),
+    fat_g: Number((Number(fav.fat_g ?? 0) * mult).toFixed(1)),
     source: 'favorite',
   })
 
@@ -206,6 +226,14 @@ export async function saveMacroTargets(formData: FormData) {
   revalidatePath('/dashboard')
 }
 
+function normalizePeptideName(raw: string) {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
 export async function addPeptide(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const {
@@ -224,6 +252,16 @@ export async function addPeptide(formData: FormData) {
     | 'mcg')
   const frequency = s(formData.get('frequency'))
   const timing = s(formData.get('timing'))
+  const note = s(formData.get('note'))
+  const side_effect_note = s(formData.get('side_effect_note'))
+  const side_effect_tags = formData
+    .getAll('side_effect_tags')
+    .map((v) => String(v))
+    .map((v) => v.trim())
+    .filter(Boolean)
+
+  const save_default_note = String(formData.get('save_default_note') ?? '') === 'on'
+  const taken_now = String(formData.get('taken_now') ?? '') === 'on'
 
   if (!name) throw new Error('Missing name')
   if (vial_amount == null || recon_volume_ml == null || desired_dose == null) {
@@ -237,6 +275,8 @@ export async function addPeptide(formData: FormData) {
     desired_dose,
     desired_dose_unit,
   })
+
+  const nowIso = new Date().toISOString()
 
   const { error } = await supabase.from('peptide_entries').insert({
     user_id: user.id,
@@ -253,8 +293,28 @@ export async function addPeptide(formData: FormData) {
     actual_dose_mcg: calc.actual_dose_mcg,
     frequency,
     timing,
-    status: 'pending',
+    status: taken_now ? 'taken' : 'pending',
+    taken_at: taken_now ? nowIso : null,
+    note: note || null,
+    side_effect_note: side_effect_note || null,
+    side_effect_tags: side_effect_tags.length ? side_effect_tags : null,
   })
+
+  if (!error && save_default_note) {
+    const normalized_name = normalizePeptideName(name)
+    if (normalized_name) {
+      await supabase.from('peptide_defaults').upsert(
+        {
+          user_id: user.id,
+          normalized_name,
+          display_name: name,
+          default_note: note || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,normalized_name' }
+      )
+    }
+  }
 
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard')
