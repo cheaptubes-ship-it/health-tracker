@@ -17,12 +17,17 @@ export async function POST(req: Request) {
     if (!body) return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 })
 
     const token = String(body.token ?? '').trim()
-    const entry_date = String(body.entry_date ?? '').trim() // YYYY-MM-DD
+    const entry_date_raw = String(body.entry_date ?? '').trim() // YYYY-MM-DD
+    const entry_ts = String(body.entry_ts ?? '').trim() // ISO string from iPhone (preferred)
     const steps = n(body.steps)
 
     if (!token) return NextResponse.json({ ok: false, error: 'Missing token' }, { status: 400 })
-    if (!entry_date) return NextResponse.json({ ok: false, error: 'Missing entry_date' }, { status: 400 })
     if (steps == null) return NextResponse.json({ ok: false, error: 'Missing steps' }, { status: 400 })
+
+    const entry_date = entry_date_raw || (entry_ts ? entry_ts.slice(0, 10) : '')
+    if (!entry_date) {
+      return NextResponse.json({ ok: false, error: 'Missing entry_date or entry_ts' }, { status: 400 })
+    }
 
     const supabase = createSupabaseAdminClient()
 

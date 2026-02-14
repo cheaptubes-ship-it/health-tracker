@@ -23,11 +23,14 @@ export async function POST(req: Request) {
 
     const token = String(body.token ?? '').trim()
     const kind = String(body.kind ?? '').trim() // walk|bike|elliptical|run|other
-    const started_at = String(body.started_at ?? '').trim()
+    const started_at_raw = String(body.started_at ?? '').trim()
+    const started_ts = String(body.started_ts ?? '').trim() // preferred
 
     if (!token) return NextResponse.json({ ok: false, error: 'Missing token' }, { status: 400 })
     if (!kind) return NextResponse.json({ ok: false, error: 'Missing kind' }, { status: 400 })
-    if (!started_at) return NextResponse.json({ ok: false, error: 'Missing started_at' }, { status: 400 })
+
+    const started_at = started_at_raw || started_ts
+    if (!started_at) return NextResponse.json({ ok: false, error: 'Missing started_at or started_ts' }, { status: 400 })
 
     const supabase = createSupabaseAdminClient()
 
