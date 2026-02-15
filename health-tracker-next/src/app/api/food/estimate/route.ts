@@ -4,6 +4,9 @@ import { MacroEstimateSchema } from '@/lib/food/estimate'
 
 export const runtime = 'nodejs'
 
+// naive per-instance throttle (helps avoid accidental double-submits)
+const lastCallByIp = new Map<string, number>()
+
 export async function POST(req: Request) {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
@@ -12,6 +15,19 @@ export async function POST(req: Request) {
       { status: 500 }
     )
   }
+
+  // Basic throttle: 1 request / 20s per IP (best-effort; serverless instances may vary)
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const nowMs = Date.now()
+  const prev = lastCallByIp.get(ip) ?? 0
+  if (nowMs - prev < 20_000) {
+    const retryAfter = Math.ceil((20_000 - (nowMs - prev)) / 1000)
+    return NextResponse.json(
+      { ok: false, error: 'rate_limited', message: 'Too many requests. Try again shortly.', retryAfterSeconds: retryAfter },
+      { status: 429, headers: { 'retry-after': String(retryAfter) } }
+    )
+  }
+  lastCallByIp.set(ip, nowMs)
 
   const form = await req.formData()
   const file = form.get('image')
@@ -37,10 +53,10 @@ export async function POST(req: Request) {
     })
     fileId = up.id
   } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : String(e) },
-      { status: 502 }
-    )
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('food.estimate file upload failed', { msg })
+    const status = /rate\s*limit|too\s*many/i.test(msg) ? 429 : 502
+    return NextResponse.json({ ok: false, error: msg }, { status })
   }
 
   // Vision prompt: estimate macros; allow user to edit later.
@@ -66,9 +82,18 @@ export async function POST(req: Request) {
       ],
     })
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('food.estimate model call failed', { msg })
+    const status = /rate\s*limit|too\s*many/i.test(msg) ? 429 : 502
     return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : String(e) },
-      { status: 502 }
+      {
+        ok: false,
+        error: /rate\s*limit|too\s*many/i.test(msg) ? 'rate_limited' : msg,
+        message: /rate\s*limit|too\s*many/i.test(msg)
+          ? 'API rate limit reached. Please wait a bit and try again.'
+          : msg,
+      },
+      { status }
     )
   }
 
