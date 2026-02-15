@@ -79,31 +79,35 @@ export async function POST(req: Request) {
     const desired_dose = actual_dose_mcg
     const desired_dose_unit: 'mcg' = 'mcg'
 
-    const { error: insErr } = await supabase.from('peptide_entries').insert({
-      user_id: user.id,
-      entry_date: entry_date ?? undefined,
-      name: sched.display_name ?? prof.display_name ?? sched.normalized_name,
-      vial_amount,
-      vial_unit,
-      recon_volume_ml,
-      desired_dose,
-      desired_dose_unit,
-      syringe_units,
-      concentration_mcg_per_ml,
-      volume_needed_ml,
-      actual_dose_mcg,
-      frequency: null,
-      timing: sched.timing,
-      status: 'taken',
-      taken_at: nowIso,
-      note: sched.note ?? prof.default_note ?? null,
-      side_effect_note: null,
-      side_effect_tags: null,
-    })
+    const { data: inserted, error: insErr } = await supabase
+      .from('peptide_entries')
+      .insert({
+        user_id: user.id,
+        entry_date: entry_date ?? undefined,
+        name: sched.display_name ?? prof.display_name ?? sched.normalized_name,
+        vial_amount,
+        vial_unit,
+        recon_volume_ml,
+        desired_dose,
+        desired_dose_unit,
+        syringe_units,
+        concentration_mcg_per_ml,
+        volume_needed_ml,
+        actual_dose_mcg,
+        frequency: null,
+        timing: sched.timing,
+        status: 'taken',
+        taken_at: nowIso,
+        note: sched.note ?? prof.default_note ?? null,
+        side_effect_note: null,
+        side_effect_tags: null,
+      })
+      .select('id')
+      .single()
 
     if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 400 })
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, entryId: inserted?.id ?? null })
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : String(e) },

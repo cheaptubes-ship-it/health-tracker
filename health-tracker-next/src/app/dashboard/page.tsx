@@ -66,6 +66,7 @@ export default async function DashboardPage({
     { data: shortcutsTokenRow },
     { data: sleep },
     { data: peptideSchedule },
+    { data: peptideTakenToday },
   ] = await Promise.all([
     supabase
       .from('food_entries')
@@ -107,6 +108,12 @@ export default async function DashboardPage({
       .select('id, normalized_name, display_name, dose_value, dose_unit, timing, days_of_week, active')
       .order('display_name', { ascending: true })
       .order('timing', { ascending: true }),
+    supabase
+      .from('peptide_entries')
+      .select('id, name, timing, status, entry_date')
+      .eq('entry_date', selectedDate)
+      .eq('status', 'taken')
+      .order('taken_at', { ascending: false }),
   ])
 
   const shortcutsToken = shortcutsTokenRow?.token ?? null
@@ -884,6 +891,7 @@ export default async function DashboardPage({
               <PeptideQuickLogClient
                 selectedDate={selectedDate}
                 scheduleItems={(peptideSchedule ?? []) as any}
+                takenToday={(peptideTakenToday ?? []) as any}
               />
 
               <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">

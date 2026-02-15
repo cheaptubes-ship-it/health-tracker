@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { peptideKey } from './peptides-utils'
 
 type Item = {
   id: string
@@ -22,34 +23,57 @@ function nyDow() {
   return map[w] ?? new Date().getDay()
 }
 
+type TakenEntry = {
+  id: string
+  name: string
+  timing: string | null
+  status: string
+  entry_date: string
+}
+
 export function PeptideQuickLogClient({
   selectedDate,
   scheduleItems,
+  takenToday,
 }: {
   selectedDate: string
   scheduleItems: Item[]
+  takenToday: TakenEntry[]
 }) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [lastLoggedEntryId, setLastLoggedEntryId] = useState<string | null>(null)
 
   const todayDow = nyDow()
 
   const due = useMemo(() => {
+    const takenKeys = new Set(
+      (takenToday ?? []).map((e) => peptideKey(String(e.name ?? ''))).filter(Boolean)
+    )
+
     const active = scheduleItems.filter((s) => s.active)
     const matchesDay = active.filter((s) => (s.days_of_week ?? []).includes(todayDow))
 
-    // Bedtime merged into PM
-    const am = matchesDay.filter((s) => s.timing === 'am')
-    const pm = matchesDay.filter((s) => s.timing === 'pm' || s.timing === 'bedtime')
+    // Hide items already logged today (by peptide name key)
+    const notLogged = matchesDay.filter((s) => {
+      const key = peptideKey(s.display_name ?? s.normalized_name)
+      return key && !takenKeys.has(key)
+    })
 
-    const sort = (a: Item, b: Item) => (a.display_name ?? a.normalized_name).localeCompare(b.display_name ?? b.normalized_name)
+    // Bedtime merged into PM
+    const am = notLogged.filter((s) => s.timing === 'am')
+    const pm = notLogged.filter((s) => s.timing === 'pm' || s.timing === 'bedtime')
+
+    const sort = (a: Item, b: Item) =>
+      (a.display_name ?? a.normalized_name).localeCompare(b.display_name ?? b.normalized_name)
 
     return {
       am: am.sort(sort),
       pm: pm.sort(sort),
+      takenCount: takenKeys.size,
     }
-  }, [scheduleItems, todayDow])
+  }, [scheduleItems, takenToday, todayDow])
 
   async function quickLog(schedule_id: string) {
     setErr(null)
@@ -63,6 +87,7 @@ export function PeptideQuickLogClient({
       })
       const json = await res.json().catch(() => null)
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+      setLastLoggedEntryId(json?.entryId ?? null)
       setNotice('Logged')
       // The peptide list below is server-rendered; easiest is a full refresh.
       window.location.reload()
@@ -91,7 +116,35 @@ export function PeptideQuickLogClient({
       </div>
 
       {err ? <p className="mt-2 text-sm text-red-400">{err}</p> : null}
-      {notice ? <p className="mt-2 text-sm text-emerald-400">{notice}</p> : null}
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        {notice ? <p className="text-sm text-emerald-400">{notice}</p> : null}
+        {lastLoggedEntryId ? (
+          <button
+            type="button"
+            className="rounded-lg border border-slate-700 bg-slate-950/20 px-2 py-1 text-xs text-slate-100 hover:bg-slate-900/40"
+            onClick={async () => {
+              try {
+                setErr(null)
+                setNotice(null)
+                const res = await fetch('/api/peptides/quick-log/delete', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ id: lastLoggedEntryId }),
+                })
+                const json = await res.json().catch(() => null)
+                if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to undo')
+                setNotice('Undid last log')
+                setLastLoggedEntryId(null)
+                window.location.reload()
+              } catch (e) {
+                setErr(e instanceof Error ? e.message : String(e))
+              }
+            }}
+          >
+            Undo
+          </button>
+        ) : null}
+      </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
