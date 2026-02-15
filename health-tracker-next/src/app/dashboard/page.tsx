@@ -68,6 +68,8 @@ export default async function DashboardPage({
     { data: sleep },
     { data: peptideSchedule },
     { data: peptideTakenToday },
+    { data: stepsLatest },
+    { data: cardioLatest },
   ] = await Promise.all([
     supabase
       .from('food_entries')
@@ -115,6 +117,16 @@ export default async function DashboardPage({
       .eq('entry_date', selectedDate)
       .eq('status', 'taken')
       .order('taken_at', { ascending: false }),
+    supabase
+      .from('steps_entries')
+      .select('entry_date, steps, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(1),
+    supabase
+      .from('cardio_entries')
+      .select('kind, started_at, ended_at, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(1),
   ])
 
   const shortcutsToken = shortcutsTokenRow?.token ?? null
@@ -831,6 +843,10 @@ export default async function DashboardPage({
           ) : tab === 'settings' ? (
             <SettingsClient
               shortcutsToken={shortcutsToken}
+              shortcutsStatus={{
+                steps: stepsLatest?.[0] ?? null,
+                cardio: cardioLatest?.[0] ?? null,
+              }}
               initial={
                 targets
                   ? {

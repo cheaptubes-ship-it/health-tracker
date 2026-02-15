@@ -5,6 +5,7 @@ import { useState } from 'react'
 export function SettingsClient({
   initial,
   shortcutsToken,
+  shortcutsStatus,
 }: {
   initial: {
     calories: number | null
@@ -21,6 +22,10 @@ export function SettingsClient({
     } | null
   } | null
   shortcutsToken: string | null
+  shortcutsStatus: {
+    steps: { entry_date: string; steps: number | null; updated_at: string | null } | null
+    cardio: { kind: string; started_at: string | null; ended_at: string | null; updated_at: string | null } | null
+  }
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -151,6 +156,25 @@ export function SettingsClient({
             <div className="text-xs text-slate-400">Your Shortcuts token</div>
             <div className="mt-1 break-all font-mono text-sm text-slate-100">
               {shortcutsToken ?? '—'}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-800 bg-slate-950/20 p-3">
+            <div className="text-xs font-semibold text-slate-200">Import status</div>
+            <div className="mt-2 text-xs text-slate-300">
+              Steps last import:{' '}
+              {shortcutsStatus.steps?.updated_at
+                ? `${new Date(shortcutsStatus.steps.updated_at).toLocaleString()} (${shortcutsStatus.steps.entry_date}, ${shortcutsStatus.steps.steps ?? '—'} steps)`
+                : '—'}
+            </div>
+            <div className="mt-1 text-xs text-slate-300">
+              Cardio last import:{' '}
+              {shortcutsStatus.cardio?.updated_at
+                ? `${new Date(shortcutsStatus.cardio.updated_at).toLocaleString()} (${shortcutsStatus.cardio.kind}${shortcutsStatus.cardio.started_at ? `, ${new Date(shortcutsStatus.cardio.started_at).toLocaleString()}` : ''})`
+                : '—'}
+            </div>
+            <div className="mt-2 text-xs text-slate-400">
+              If these stay blank, your Shortcut isn’t hitting the endpoint (token/URL mismatch).
             </div>
           </div>
 
