@@ -24,10 +24,20 @@ export async function POST(req: Request) {
     if (!token) return NextResponse.json({ ok: false, error: 'Missing token' }, { status: 400 })
     if (steps == null) return NextResponse.json({ ok: false, error: 'Missing steps' }, { status: 400 })
 
-    const entry_date = entry_date_raw || (entry_ts ? entry_ts.slice(0, 10) : '')
-    if (!entry_date) {
-      return NextResponse.json({ ok: false, error: 'Missing entry_date or entry_ts' }, { status: 400 })
+    function todayYmdNY() {
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(new Date())
+      const y = parts.find((p) => p.type === 'year')?.value
+      const m = parts.find((p) => p.type === 'month')?.value
+      const d = parts.find((p) => p.type === 'day')?.value
+      return y && m && d ? `${y}-${m}-${d}` : new Date().toISOString().slice(0, 10)
     }
+
+    const entry_date = entry_date_raw || (entry_ts ? entry_ts.slice(0, 10) : '') || todayYmdNY()
 
     const supabase = createSupabaseAdminClient()
 
