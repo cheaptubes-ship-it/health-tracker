@@ -120,21 +120,50 @@ export function PeptideScheduleClient() {
             <div className="text-xs text-slate-400">Create schedules + pause items to silence reminders (e.g., Retatrutide).</div>
           </div>
 
-          {!items.length ? (
+          <div className="flex flex-wrap gap-2">
+            {!items.length ? (
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50 disabled:opacity-50"
+                onClick={async () => {
+                  try {
+                    setBusy(true)
+                    setErr(null)
+                    setNotice(null)
+                    const res = await fetch('/api/peptides/schedule/seed', { method: 'POST' })
+                    const json = await res.json().catch(() => null)
+                    if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to seed')
+                    setNotice(
+                      json?.seeded
+                        ? `Seeded (${json?.count ?? 0} schedule items)`
+                        : json?.message ?? 'No changes'
+                    )
+                    await load()
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e))
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+              >
+                Seed my schedule
+              </button>
+            ) : null}
+
             <button
               type="button"
               disabled={busy}
-              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50 disabled:opacity-50"
+              className="rounded-lg border border-slate-700 bg-slate-950/10 px-3 py-2 text-sm text-slate-200 hover:bg-slate-900 disabled:opacity-50"
               onClick={async () => {
                 try {
                   setBusy(true)
                   setErr(null)
                   setNotice(null)
-                  const res = await fetch('/api/peptides/schedule/seed', { method: 'POST' })
+                  const res = await fetch('/api/peptides/profiles/seed', { method: 'POST' })
                   const json = await res.json().catch(() => null)
-                  if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to seed')
-                  setNotice(json?.seeded ? `Seeded (${json?.count ?? 0} items)` : (json?.message ?? 'No changes'))
-                  await load()
+                  if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to seed profiles')
+                  setNotice(`Seeded vial profiles (${json?.count ?? 0})`)
                 } catch (e) {
                   setErr(e instanceof Error ? e.message : String(e))
                 } finally {
@@ -142,9 +171,9 @@ export function PeptideScheduleClient() {
                 }
               }}
             >
-              Seed my schedule
+              Seed vial profiles
             </button>
-          ) : null}
+          </div>
         </div>
 
         <div className="mt-3 grid gap-3 sm:grid-cols-2">

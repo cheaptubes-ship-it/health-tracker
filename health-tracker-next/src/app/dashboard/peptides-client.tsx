@@ -1,9 +1,18 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { calcPeptide } from './peptides-utils'
+import { useEffect, useMemo, useState } from 'react'
+import { calcPeptide, peptideKey } from './peptides-utils'
 
 type AddPeptideAction = (formData: FormData) => Promise<void>
+
+type PeptideProfile = {
+  normalized_name: string
+  display_name: string | null
+  vial_amount: number
+  vial_unit: 'mg' | 'mcg'
+  recon_volume_ml: number
+  default_note: string | null
+}
 
 export function PeptidesClient({
   selectedDate,
@@ -13,6 +22,8 @@ export function PeptidesClient({
   addPeptideAction: AddPeptideAction
 }) {
   const [name, setName] = useState('')
+  const [profiles, setProfiles] = useState<PeptideProfile[]>([])
+  const [profilesLoaded, setProfilesLoaded] = useState(false)
   const [vialAmount, setVialAmount] = useState('')
   const [vialUnit, setVialUnit] = useState<'mg' | 'mcg'>('mg')
   const [reconVolume, setReconVolume] = useState('')
@@ -34,6 +45,21 @@ export function PeptidesClient({
     { id: 'headache', label: 'Headache' },
     { id: 'gi', label: 'GI upset' },
   ]
+
+  useEffect(() => {
+    if (profilesLoaded) return
+    void (async () => {
+      try {
+        const res = await fetch('/api/peptides/profiles')
+        const json = await res.json().catch(() => null)
+        if (res.ok && json?.ok && Array.isArray(json.items)) {
+          setProfiles(json.items)
+        }
+      } finally {
+        setProfilesLoaded(true)
+      }
+    })()
+  }, [profilesLoaded])
 
   const calc = useMemo(() => {
     const va = Number(vialAmount)
@@ -63,6 +89,7 @@ export function PeptidesClient({
             Name
             <input
               name="name"
+              list="peptide-names"
               className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="e.g. BPC-157"
               required
@@ -70,6 +97,17 @@ export function PeptidesClient({
               onChange={async (e) => {
                 const next = e.target.value
                 setName(next)
+
+                const key = peptideKey(next)
+                const prof = profiles.find((p) => p.normalized_name === key) ?? null
+                // Autofill vial/recon defaults if the user hasn't typed anything yet.
+                if (prof) {
+                  if (!vialAmount.trim()) setVialAmount(String(prof.vial_amount))
+                  if (!reconVolume.trim()) setReconVolume(String(prof.recon_volume_ml))
+                  setVialUnit(prof.vial_unit)
+                  if (!note.trim() && prof.default_note) setNote(String(prof.default_note))
+                }
+
                 // Fetch default note (normalized server-side) and prefill if memo is empty.
                 if (!next.trim()) return
                 if (note.trim()) return
@@ -83,6 +121,14 @@ export function PeptidesClient({
                 }
               }}
             />
+            <datalist id="peptide-names">
+              {profiles
+                .map((p) => p.display_name)
+                .filter((x): x is string => Boolean(x))
+                .map((n) => (
+                  <option key={n} value={n} />
+                ))}
+            </datalist>
           </label>
 
           <label className="grid gap-1 text-sm text-slate-200">

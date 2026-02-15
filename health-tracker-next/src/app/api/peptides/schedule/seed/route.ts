@@ -120,6 +120,34 @@ export async function POST() {
     const { error } = await supabase.from('peptide_schedules').insert(rows)
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
 
+    // Also seed peptide profiles (vial + recon) so logging can autofill and convert units→mcg.
+    // Based on your sheet: amount / total mL.
+    const profiles: any[] = [
+      { display_name: 'NAD+', vial_amount: 1000, vial_unit: 'mg', recon_volume_ml: 5 },
+      { display_name: 'BPC-157', vial_amount: 10, vial_unit: 'mg', recon_volume_ml: 2 },
+      { display_name: 'TB-500', vial_amount: 10, vial_unit: 'mg', recon_volume_ml: 2 },
+      { display_name: 'TA-1 (Thymosin Alpha-1)', vial_amount: 10, vial_unit: 'mg', recon_volume_ml: 2 },
+      { display_name: 'CJC-1295 / IPA', vial_amount: 10, vial_unit: 'mg', recon_volume_ml: 2 },
+      { display_name: 'Retatrutide', vial_amount: 50, vial_unit: 'mg', recon_volume_ml: 10 },
+    ].map((p) => ({
+      user_id: user.id,
+      normalized_name: peptideKey(p.display_name),
+      display_name: p.display_name,
+      vial_amount: p.vial_amount,
+      vial_unit: p.vial_unit,
+      recon_volume_ml: p.recon_volume_ml,
+      updated_at: new Date().toISOString(),
+    }))
+
+    const { error: pErr } = await supabase.from('peptide_profiles').upsert(profiles, {
+      onConflict: 'user_id,normalized_name',
+    })
+
+    if (pErr) {
+      // schedule seeded; surface warning but don't fail.
+      return NextResponse.json({ ok: true, seeded: true, count: rows.length, profileWarning: pErr.message })
+    }
+
     return NextResponse.json({ ok: true, seeded: true, count: rows.length })
   } catch (e) {
     return NextResponse.json(
