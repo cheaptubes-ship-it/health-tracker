@@ -28,6 +28,27 @@ export function PeptideScheduleClient() {
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
+  const weekView = useMemo(() => {
+    // { timing: { dow: string[] } }
+    const buckets: Record<string, Record<number, string[]>> = {
+      am: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] },
+      pm: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] },
+      bedtime: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] },
+    }
+
+    for (const it of items) {
+      const labelName = it.display_name ?? it.normalized_name
+      const dose = it.dose_value != null ? `${it.dose_value}${it.dose_unit}` : ''
+      const label = `${labelName}${dose ? ` (${dose})` : ''}${it.active ? '' : ' [paused]'}`
+      const days = Array.isArray(it.days_of_week) ? it.days_of_week : []
+      for (const d of days) {
+        if (buckets[it.timing]?.[d]) buckets[it.timing][d].push(label)
+      }
+    }
+
+    return buckets
+  }, [items])
+
   async function load() {
     setErr(null)
     const res = await fetch('/api/peptides/schedule')
@@ -93,11 +114,37 @@ export function PeptideScheduleClient() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <div className="text-sm font-medium">Schedule</div>
             <div className="text-xs text-slate-400">Create schedules + pause items to silence reminders (e.g., Retatrutide).</div>
           </div>
+
+          {!items.length ? (
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50 disabled:opacity-50"
+              onClick={async () => {
+                try {
+                  setBusy(true)
+                  setErr(null)
+                  setNotice(null)
+                  const res = await fetch('/api/peptides/schedule/seed', { method: 'POST' })
+                  const json = await res.json().catch(() => null)
+                  if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to seed')
+                  setNotice(json?.seeded ? `Seeded (${json?.count ?? 0} items)` : (json?.message ?? 'No changes'))
+                  await load()
+                } catch (e) {
+                  setErr(e instanceof Error ? e.message : String(e))
+                } finally {
+                  setBusy(false)
+                }
+              }}
+            >
+              Seed my schedule
+            </button>
+          ) : null}
         </div>
 
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -198,7 +245,46 @@ export function PeptideScheduleClient() {
 
       <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
         <div className="flex items-baseline justify-between">
-          <h3 className="font-medium">Current schedule</h3>
+          <h3 className="font-medium">Week view</h3>
+          <div className="text-xs text-slate-400">AM / PM / Bedtime</div>
+        </div>
+
+        <div className="mt-3 overflow-auto rounded-lg border border-slate-800">
+          <div className="min-w-[900px]">
+            <div className="grid grid-cols-[120px_repeat(7,1fr)] border-b border-slate-800 bg-slate-950/30 text-xs text-slate-300">
+              <div className="p-2">Time</div>
+              {DOW.map((d) => (
+                <div key={d} className="p-2 font-medium">{d}</div>
+              ))}
+            </div>
+
+            {(['am', 'pm', 'bedtime'] as const).map((t) => (
+              <div key={t} className="grid grid-cols-[120px_repeat(7,1fr)] border-b border-slate-800">
+                <div className="p-2 text-sm font-medium text-slate-100">
+                  {t === 'am' ? 'Morning' : t === 'pm' ? 'Evening' : 'Bedtime'}
+                </div>
+                {DOW.map((_, d) => (
+                  <div key={d} className="p-2 text-xs text-slate-200">
+                    {(weekView[t][d] ?? []).length ? (
+                      <ul className="grid gap-1">
+                        {(weekView[t][d] ?? []).map((x, idx) => (
+                          <li key={idx} className="rounded bg-slate-950/30 px-2 py-1">{x}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+        <div className="flex items-baseline justify-between">
+          <h3 className="font-medium">Current schedule (editable)</h3>
         </div>
         {items.length ? (
           <ul className="mt-3 divide-y divide-slate-800">
