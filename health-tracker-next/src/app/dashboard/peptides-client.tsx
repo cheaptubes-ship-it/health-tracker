@@ -29,6 +29,8 @@ export function PeptidesClient({
   const [reconVolume, setReconVolume] = useState('')
   const [dose, setDose] = useState('')
   const [doseUnit, setDoseUnit] = useState<'mcg' | 'mg'>('mcg')
+  const [doseMode, setDoseMode] = useState<'dose' | 'units'>('dose')
+  const [syringeUnits, setSyringeUnits] = useState('')
   const [frequency, setFrequency] = useState('')
   const [timing, setTiming] = useState('')
   const [note, setNote] = useState('')
@@ -64,9 +66,29 @@ export function PeptidesClient({
   const calc = useMemo(() => {
     const va = Number(vialAmount)
     const rv = Number(reconVolume)
+    if (!Number.isFinite(va) || !Number.isFinite(rv)) return null
+    if (va <= 0 || rv <= 0) return null
+
+    if (doseMode === 'units') {
+      const u = Number(syringeUnits)
+      if (!Number.isFinite(u) || u <= 0) return null
+      // Convert units -> volume -> mcg
+      const vialAmountMcg = vialUnit === 'mg' ? va * 1000 : va
+      const concentration_mcg_per_ml = vialAmountMcg / rv
+      const volume_needed_ml = u / 100
+      const desiredDoseMcg = concentration_mcg_per_ml * volume_needed_ml
+      return {
+        vialAmountMcg,
+        desiredDoseMcg,
+        concentration_mcg_per_ml,
+        volume_needed_ml,
+        syringe_units: u,
+        actual_dose_mcg: desiredDoseMcg,
+      }
+    }
+
     const dd = Number(dose)
-    if (!Number.isFinite(va) || !Number.isFinite(rv) || !Number.isFinite(dd)) return null
-    if (va <= 0 || rv <= 0 || dd <= 0) return null
+    if (!Number.isFinite(dd) || dd <= 0) return null
     return calcPeptide({
       vial_amount: va,
       vial_unit: vialUnit,
@@ -74,7 +96,7 @@ export function PeptidesClient({
       desired_dose: dd,
       desired_dose_unit: doseUnit,
     })
-  }, [vialAmount, vialUnit, reconVolume, dose, doseUnit])
+  }, [vialAmount, vialUnit, reconVolume, dose, doseUnit, doseMode, syringeUnits])
 
   return (
     <div className="space-y-4">
@@ -168,29 +190,81 @@ export function PeptidesClient({
             />
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-200">
-            Desired dose
-            <div className="flex gap-2">
-              <input
-                name="desired_dose"
-                type="number"
-                step="0.01"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                required
-                value={dose}
-                onChange={(e) => setDose(e.target.value)}
-              />
-              <select
-                name="desired_dose_unit"
-                className="rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={doseUnit}
-                onChange={(e) => setDoseUnit(e.target.value as 'mcg' | 'mg')}
-              >
-                <option value="mcg">mcg</option>
-                <option value="mg">mg</option>
-              </select>
+          <div className="grid gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm text-slate-200">Dose input</div>
+              <div className="flex gap-2 rounded-lg border border-slate-700 bg-slate-950/20 p-1">
+                <button
+                  type="button"
+                  className={`rounded-md px-2 py-1 text-xs ${doseMode === 'dose' ? 'bg-indigo-500 text-white' : 'text-slate-200 hover:bg-slate-900/40'}`}
+                  onClick={() => setDoseMode('dose')}
+                >
+                  mcg/mg
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-md px-2 py-1 text-xs ${doseMode === 'units' ? 'bg-indigo-500 text-white' : 'text-slate-200 hover:bg-slate-900/40'}`}
+                  onClick={() => {
+                    setDoseMode('units')
+                    // default to mcg under the hood
+                    setDoseUnit('mcg')
+                  }}
+                >
+                  syringe units (u)
+                </button>
+              </div>
             </div>
-          </label>
+
+            {doseMode === 'dose' ? (
+              <label className="grid gap-1 text-sm text-slate-200">
+                Desired dose
+                <div className="flex gap-2">
+                  <input
+                    name="desired_dose"
+                    type="number"
+                    step="0.01"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                    value={dose}
+                    onChange={(e) => setDose(e.target.value)}
+                  />
+                  <select
+                    name="desired_dose_unit"
+                    className="rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={doseUnit}
+                    onChange={(e) => setDoseUnit(e.target.value as 'mcg' | 'mg')}
+                  >
+                    <option value="mcg">mcg</option>
+                    <option value="mg">mg</option>
+                  </select>
+                </div>
+              </label>
+            ) : (
+              <>
+                <label className="grid gap-1 text-sm text-slate-200">
+                  Syringe units (100u = 1mL)
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    value={syringeUnits}
+                    onChange={(e) => setSyringeUnits(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="e.g. 5"
+                    required
+                  />
+                </label>
+
+                {/* Submit desired_dose as mcg derived from units so backend stays unchanged */}
+                <input type="hidden" name="desired_dose_unit" value="mcg" />
+                <input
+                  type="hidden"
+                  name="desired_dose"
+                  value={calc ? String(calc.actual_dose_mcg) : ''}
+                />
+              </>
+            )}
+          </div>
 
           <label className="grid gap-1 text-sm text-slate-200">
             Frequency
