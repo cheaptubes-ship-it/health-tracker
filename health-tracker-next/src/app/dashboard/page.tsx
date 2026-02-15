@@ -20,6 +20,7 @@ import { SummaryClient } from './summary-client'
 import type { SummaryRange, SummaryStats } from './summary-types'
 import { TrainingClient } from './training-client'
 import { ActivityClient } from './activity-client'
+import { SleepClient } from './sleep-client'
 
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10)
@@ -61,6 +62,7 @@ export default async function DashboardPage({
     { data: hydration },
     { data: hydrationTargets },
     { data: shortcutsTokenRow },
+    { data: sleep },
   ] = await Promise.all([
     supabase
       .from('food_entries')
@@ -92,6 +94,11 @@ export default async function DashboardPage({
       .select('unit_pref, water_ml, sodium_mg, potassium_mg, magnesium_mg')
       .maybeSingle(),
     supabase.from('shortcuts_tokens').select('token').maybeSingle(),
+    supabase
+      .from('sleep_entries')
+      .select('id, entry_date, sleep_start_at, sleep_end_at, quality, note, created_at')
+      .eq('entry_date', selectedDate)
+      .order('created_at', { ascending: false }),
   ])
 
   const shortcutsToken = shortcutsTokenRow?.token ?? null
@@ -795,12 +802,14 @@ export default async function DashboardPage({
               totals={hydrationTotals}
               entries={(hydration ?? []) as HydrationEntry[]}
             />
-          ) : tab === 'summary' || tab === 'sleep' ? (
+          ) : tab === 'summary' ? (
             <SummaryClient
               stats={summaryStats}
               selectedDate={selectedDate}
               unitPref={(hydrationTargets?.unit_pref as 'oz' | 'ml') ?? 'oz'}
             />
+          ) : tab === 'sleep' ? (
+            <SleepClient selectedDate={selectedDate} entries={(sleep ?? []) as any} />
           ) : tab === 'trends' ? (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Trends (last 30 days)</h2>
