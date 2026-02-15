@@ -12,6 +12,7 @@ import { FoodClient } from './food-client'
 import { SettingsClient } from './settings-client'
 import { PeptideList } from './peptide-list'
 import { PeptidesClient } from './peptides-client'
+import { PeptideScheduleClient } from './peptide-schedule-client'
 import { VitalsList } from './vitals-list'
 import { TrendsClient } from './trends-client'
 import { HydrationClient } from './hydration-client'
@@ -819,7 +820,14 @@ export default async function DashboardPage({
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Peptides</h2>
 
-              <PeptidesClient selectedDate={selectedDate} addPeptideAction={addPeptide} />
+              <PeptideScheduleClient />
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+                <div className="text-sm font-medium">Log a dose</div>
+                <div className="mt-3">
+                  <PeptidesClient selectedDate={selectedDate} addPeptideAction={addPeptide} />
+                </div>
+              </div>
 
               <PeptideList selectedDate={selectedDate} />
             </div>
