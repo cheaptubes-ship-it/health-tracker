@@ -13,6 +13,7 @@ import { SettingsClient } from './settings-client'
 import { PeptideList } from './peptide-list'
 import { PeptidesClient } from './peptides-client'
 import { PeptideScheduleClient } from './peptide-schedule-client'
+import { PeptideQuickLogClient } from './peptide-quick-log-client'
 import { VitalsList } from './vitals-list'
 import { TrendsClient } from './trends-client'
 import { HydrationClient } from './hydration-client'
@@ -64,6 +65,7 @@ export default async function DashboardPage({
     { data: hydrationTargets },
     { data: shortcutsTokenRow },
     { data: sleep },
+    { data: peptideSchedule },
   ] = await Promise.all([
     supabase
       .from('food_entries')
@@ -100,6 +102,11 @@ export default async function DashboardPage({
       .select('id, entry_date, sleep_start_at, sleep_end_at, quality, note, created_at')
       .eq('entry_date', selectedDate)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('peptide_schedules')
+      .select('id, normalized_name, display_name, dose_value, dose_unit, timing, days_of_week, active')
+      .order('display_name', { ascending: true })
+      .order('timing', { ascending: true }),
   ])
 
   const shortcutsToken = shortcutsTokenRow?.token ?? null
@@ -873,6 +880,11 @@ export default async function DashboardPage({
               <h2 className="text-lg font-semibold">Peptides</h2>
 
               <PeptideScheduleClient />
+
+              <PeptideQuickLogClient
+                selectedDate={selectedDate}
+                scheduleItems={(peptideSchedule ?? []) as any}
+              />
 
               <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
                 <div className="text-sm font-medium">Log a dose</div>
