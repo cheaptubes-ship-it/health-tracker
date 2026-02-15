@@ -43,6 +43,7 @@ export function HydrationClient({
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [lemonJuice, setLemonJuice] = useState(false)
 
   const unit: 'oz' | 'ml' = targets?.unit_pref ?? 'oz'
 
@@ -122,52 +123,64 @@ export function HydrationClient({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400"
-            onClick={() =>
-              void add({ name: 'Water', water_ml: ozToMl(8) })
-            }
-          >
-            + 8 oz water
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
-            onClick={() =>
-              void add({ name: 'Water', water_ml: ozToMl(16) })
-            }
-          >
-            + 16 oz water
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
-            onClick={() =>
-              void add({ name: 'Water', water_ml: ozToMl(32) })
-            }
-          >
-            + 32 oz water
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
-            onClick={() =>
-              void add({ name: 'LMNT (1 packet)', sodium_mg: 1000, potassium_mg: 200, magnesium_mg: 60 })
-            }
-          >
-            + LMNT
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
-            onClick={() =>
-              void add({ name: 'Propel (1 pkt)', sodium_mg: 230, potassium_mg: 60 })
-            }
-          >
-            + Propel
-          </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-200">
+            <input
+              type="checkbox"
+              checked={lemonJuice}
+              onChange={(e) => setLemonJuice(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-700 bg-slate-950/40"
+            />
+            Lemon juice
+          </label>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400"
+              onClick={() =>
+                void add({ name: 'Water', water_ml: ozToMl(8), lemon_juice: lemonJuice })
+              }
+            >
+              + 8 oz water
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
+              onClick={() =>
+                void add({ name: 'Water', water_ml: ozToMl(16), lemon_juice: lemonJuice })
+              }
+            >
+              + 16 oz water
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
+              onClick={() =>
+                void add({ name: 'Water', water_ml: ozToMl(32), lemon_juice: lemonJuice })
+              }
+            >
+              + 32 oz water
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
+              onClick={() =>
+                void add({ name: 'LMNT (1 packet)', sodium_mg: 1000, potassium_mg: 200, magnesium_mg: 60 })
+              }
+            >
+              + LMNT
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
+              onClick={() =>
+                void add({ name: 'Propel (1 pkt)', sodium_mg: 230, potassium_mg: 60 })
+              }
+            >
+              + Propel
+            </button>
+          </div>
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-950/10 p-4">
@@ -185,6 +198,7 @@ export function HydrationClient({
                       <div className="text-sm font-medium text-slate-100">{e.name}</div>
                       <div className="mt-1 text-xs text-slate-300">
                         {e.water_ml ? `Water ${unit === 'oz' ? `${mlToOz(Number(e.water_ml)).toFixed(1)} oz` : `${Math.round(Number(e.water_ml))} ml`}` : ''}
+                        {e.lemon_juice ? ' • Lemon' : ''}
                         {e.sodium_mg != null ? ` • Na ${Math.round(Number(e.sodium_mg))} mg` : ''}
                         {e.potassium_mg != null ? ` • K ${Math.round(Number(e.potassium_mg))} mg` : ''}
                         {e.magnesium_mg != null ? ` • Mg ${Math.round(Number(e.magnesium_mg))} mg` : ''}

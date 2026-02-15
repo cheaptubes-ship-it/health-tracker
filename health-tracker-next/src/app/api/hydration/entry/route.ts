@@ -38,6 +38,7 @@ export async function POST(req: Request) {
       magnesium_mg: n(body.magnesium_mg),
       caffeine_mg: n(body.caffeine_mg),
       sugar_g: n(body.sugar_g),
+      lemon_juice: body.lemon_juice === true,
       notes: String(body.notes ?? '').trim() || null,
     })
 

@@ -31,7 +31,10 @@ export default async function DashboardPage({
   searchParams: Promise<{ tab?: string; date?: string; range?: SummaryRange }>
 }) {
   const { tab = 'food', date, range } = await searchParams
-  const selectedDate = date || formatDate(new Date())
+  // If the user didn't explicitly pick a date, keep the URL clean and always default to "today".
+  // This avoids getting "stuck" on yesterday when you revisit /dashboard or switch tabs.
+  const hasExplicitDate = typeof date === 'string' && date.trim().length > 0
+  const selectedDate = hasExplicitDate ? date : formatDate(new Date())
   const summaryRange: SummaryRange = range ?? 'week'
 
   const supabase = await createSupabaseServerClient()
@@ -81,7 +84,7 @@ export default async function DashboardPage({
       .limit(1),
     supabase
       .from('hydration_entries')
-      .select('id, name, water_ml, sodium_mg, potassium_mg, magnesium_mg, caffeine_mg, sugar_g, created_at')
+      .select('id, name, water_ml, sodium_mg, potassium_mg, magnesium_mg, caffeine_mg, sugar_g, lemon_juice, created_at')
       .eq('entry_date', selectedDate)
       .order('created_at', { ascending: false }),
     supabase
@@ -458,7 +461,11 @@ export default async function DashboardPage({
           {tabs.map((t) => (
             <Link
               key={t.id}
-              href={`/dashboard?tab=${t.id}&date=${selectedDate}`}
+              href={
+                hasExplicitDate
+                  ? `/dashboard?tab=${t.id}&date=${selectedDate}`
+                  : `/dashboard?tab=${t.id}`
+              }
               className={`rounded-lg px-3 py-2 text-sm ${
                 t.id === tab
                   ? 'bg-indigo-500 text-white'

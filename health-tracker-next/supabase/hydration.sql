@@ -14,6 +14,7 @@ create table if not exists public.hydration_entries (
   magnesium_mg numeric,
   caffeine_mg numeric,
   sugar_g numeric,
+  lemon_juice boolean not null default false,
 
   notes text,
   created_at timestamptz not null default now()
@@ -23,6 +24,9 @@ create index if not exists hydration_entries_user_date_idx
   on public.hydration_entries (user_id, entry_date, created_at desc);
 
 alter table public.hydration_entries enable row level security;
+
+-- If hydration_entries already exists (most likely), add the new column safely:
+-- alter table public.hydration_entries add column if not exists lemon_juice boolean not null default false;
 
 drop policy if exists "hydration_entries_select_own" on public.hydration_entries;
 create policy "hydration_entries_select_own"
