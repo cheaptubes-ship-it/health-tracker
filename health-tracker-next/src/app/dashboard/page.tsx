@@ -739,7 +739,7 @@ export default async function DashboardPage({
           ) : tab === 'activity' ? (
             <ActivityClient selectedDate={selectedDate} />
           ) : tab === 'training' ? (
-            <TrainingClient />
+            <TrainingClient selectedDate={selectedDate} />
           ) : tab === 'hydration' ? (
             <HydrationClient
               selectedDate={selectedDate}

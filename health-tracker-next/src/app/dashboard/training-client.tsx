@@ -27,7 +27,11 @@ type Program = {
   repGoal: string | null
 }
 
-export function TrainingClient() {
+export function TrainingClient({
+  selectedDate,
+}: {
+  selectedDate: string
+}) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -36,8 +40,42 @@ export function TrainingClient() {
   const [slots, setSlots] = useState<Slot[]>([])
   const [options, setOptions] = useState<Record<string, ExerciseOption[]>>({})
 
+  type Workout = {
+    id: string
+    entry_date: string
+    program_id: string | null
+    week_index: number | null
+    day_index: number | null
+    note: string | null
+  }
+
+  type WorkoutExercise = {
+    id: string
+    slot_index: number
+    slot_key: string | null
+    exercise_name: string
+    planned_sets: number | null
+    planned_rep_goal: string | null
+    planned_weight: number | null
+    rating: number | null
+    note: string | null
+    sets: Array<{
+      id: string
+      set_index: number
+      weight: number | null
+      reps: number | null
+      rir: number | null
+      is_warmup: boolean
+    }>
+  }
+
+  const [workout, setWorkout] = useState<Workout | null>(null)
+  const [workoutExercises, setWorkoutExercises] = useState<WorkoutExercise[]>([])
+
   const load = useCallback(async () => {
     setErr(null)
+
+    // Program + slot selection
     const res = await fetch('/api/training/program/current')
     const json = await res.json().catch(() => null)
     if (!res.ok || !json?.ok) {
@@ -61,7 +99,17 @@ export function TrainingClient() {
           }
         })
     )
-  }, [options])
+
+    // Workout logging (sets/reps/feedback)
+    const wRes = await fetch(`/api/training/workout/current?date=${encodeURIComponent(selectedDate)}`)
+    const wJson = await wRes.json().catch(() => null)
+    if (!wRes.ok || !wJson?.ok) {
+      setErr(wJson?.error ?? 'Failed to load workout')
+      return
+    }
+    setWorkout(wJson.workout)
+    setWorkoutExercises(Array.isArray(wJson.exercises) ? wJson.exercises : [])
+  }, [options, selectedDate])
 
   useEffect(() => {
     void load()
@@ -248,6 +296,291 @@ export function TrainingClient() {
           No program yet. Click “Create program”.
         </div>
       )}
+
+      <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <div>
+            <h3 className="font-medium">Workout log</h3>
+            <div className="text-xs text-slate-400">{selectedDate}</div>
+          </div>
+          {workout ? (
+            <div className="text-xs text-slate-400">Workout: {workout.id.slice(0, 8)}</div>
+          ) : null}
+        </div>
+
+        {workoutExercises.length ? (
+          <div className="mt-3 grid gap-3">
+            {workoutExercises.map((ex) => (
+              <div key={ex.id} className="rounded-lg border border-slate-800 bg-slate-950/10 p-3">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-100">{ex.exercise_name}</div>
+                    <div className="text-xs text-slate-400">
+                      {ex.planned_sets != null ? `${ex.planned_sets} sets` : ''}
+                      {ex.planned_rep_goal ? ` • goal ${ex.planned_rep_goal}` : ''}
+                      {ex.planned_weight != null ? ` • ${ex.planned_weight}` : ''}
+                    </div>
+                  </div>
+
+                  <label className="grid gap-1 text-xs text-slate-300">
+                    Feedback
+                    <select
+                      className="h-9 rounded-lg border border-slate-700 bg-slate-950/40 px-2 text-sm text-slate-100"
+                      value={ex.rating ?? ''}
+                      onChange={async (e) => {
+                        const v = e.target.value
+                        const rating = v === '' ? null : Number(v)
+                        setWorkoutExercises((prev) =>
+                          prev.map((x) => (x.id === ex.id ? { ...x, rating } : x))
+                        )
+                        try {
+                          const res = await fetch('/api/training/workout/exercise/update', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ id: ex.id, rating }),
+                          })
+                          const json = await res.json().catch(() => null)
+                          if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                        } catch (e2) {
+                          setErr(e2 instanceof Error ? e2.message : String(e2))
+                        }
+                      }}
+                    >
+                      <option value="">—</option>
+                      <option value={-2}>-2 (bad)</option>
+                      <option value={-1}>-1</option>
+                      <option value={0}>0</option>
+                      <option value={1}>+1</option>
+                      <option value={2}>+2 (great)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-3">
+                  <div className="grid gap-2">
+                    {(ex.sets ?? []).map((s) => (
+                      <div key={s.id} className="grid gap-2 sm:grid-cols-[auto_1fr_1fr_1fr_auto] sm:items-end">
+                        <div className="text-xs text-slate-400">Set {s.set_index}</div>
+                        <label className="grid gap-1 text-xs text-slate-300">
+                          Weight
+                          <input
+                            className="h-9 rounded-lg border border-slate-700 bg-slate-950/40 px-2 text-sm text-slate-100"
+                            type="number"
+                            step="0.5"
+                            value={s.weight ?? ''}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              setWorkoutExercises((prev) =>
+                                prev.map((x) =>
+                                  x.id === ex.id
+                                    ? {
+                                        ...x,
+                                        sets: x.sets.map((y) =>
+                                          y.id === s.id ? { ...y, weight: v ? Number(v) : null } : y
+                                        ),
+                                      }
+                                    : x
+                                )
+                              )
+                            }}
+                            onBlur={async () => {
+                              try {
+                                const res = await fetch('/api/training/workout/set/upsert', {
+                                  method: 'POST',
+                                  headers: { 'content-type': 'application/json' },
+                                  body: JSON.stringify({ workout_exercise_id: ex.id, set_index: s.set_index, weight: s.weight, reps: s.reps, rir: s.rir, is_warmup: s.is_warmup }),
+                                })
+                                const json = await res.json().catch(() => null)
+                                if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                              } catch (e2) {
+                                setErr(e2 instanceof Error ? e2.message : String(e2))
+                              }
+                            }}
+                          />
+                        </label>
+                        <label className="grid gap-1 text-xs text-slate-300">
+                          Reps
+                          <input
+                            className="h-9 rounded-lg border border-slate-700 bg-slate-950/40 px-2 text-sm text-slate-100"
+                            type="number"
+                            step="1"
+                            value={s.reps ?? ''}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              setWorkoutExercises((prev) =>
+                                prev.map((x) =>
+                                  x.id === ex.id
+                                    ? {
+                                        ...x,
+                                        sets: x.sets.map((y) =>
+                                          y.id === s.id ? { ...y, reps: v ? Number(v) : null } : y
+                                        ),
+                                      }
+                                    : x
+                                )
+                              )
+                            }}
+                            onBlur={async () => {
+                              try {
+                                const res = await fetch('/api/training/workout/set/upsert', {
+                                  method: 'POST',
+                                  headers: { 'content-type': 'application/json' },
+                                  body: JSON.stringify({ workout_exercise_id: ex.id, set_index: s.set_index, weight: s.weight, reps: s.reps, rir: s.rir, is_warmup: s.is_warmup }),
+                                })
+                                const json = await res.json().catch(() => null)
+                                if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                              } catch (e2) {
+                                setErr(e2 instanceof Error ? e2.message : String(e2))
+                              }
+                            }}
+                          />
+                        </label>
+                        <label className="grid gap-1 text-xs text-slate-300">
+                          RIR
+                          <input
+                            className="h-9 rounded-lg border border-slate-700 bg-slate-950/40 px-2 text-sm text-slate-100"
+                            type="number"
+                            step="1"
+                            value={s.rir ?? ''}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              setWorkoutExercises((prev) =>
+                                prev.map((x) =>
+                                  x.id === ex.id
+                                    ? {
+                                        ...x,
+                                        sets: x.sets.map((y) =>
+                                          y.id === s.id ? { ...y, rir: v ? Number(v) : null } : y
+                                        ),
+                                      }
+                                    : x
+                                )
+                              )
+                            }}
+                            onBlur={async () => {
+                              try {
+                                const res = await fetch('/api/training/workout/set/upsert', {
+                                  method: 'POST',
+                                  headers: { 'content-type': 'application/json' },
+                                  body: JSON.stringify({ workout_exercise_id: ex.id, set_index: s.set_index, weight: s.weight, reps: s.reps, rir: s.rir, is_warmup: s.is_warmup }),
+                                })
+                                const json = await res.json().catch(() => null)
+                                if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                              } catch (e2) {
+                                setErr(e2 instanceof Error ? e2.message : String(e2))
+                              }
+                            }}
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={s.is_warmup}
+                            onChange={async (e) => {
+                              const is_warmup = e.target.checked
+                              setWorkoutExercises((prev) =>
+                                prev.map((x) =>
+                                  x.id === ex.id
+                                    ? {
+                                        ...x,
+                                        sets: x.sets.map((y) =>
+                                          y.id === s.id ? { ...y, is_warmup } : y
+                                        ),
+                                      }
+                                    : x
+                                )
+                              )
+                              try {
+                                const res = await fetch('/api/training/workout/set/upsert', {
+                                  method: 'POST',
+                                  headers: { 'content-type': 'application/json' },
+                                  body: JSON.stringify({ workout_exercise_id: ex.id, set_index: s.set_index, weight: s.weight, reps: s.reps, rir: s.rir, is_warmup }),
+                                })
+                                const json = await res.json().catch(() => null)
+                                if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                              } catch (e2) {
+                                setErr(e2 instanceof Error ? e2.message : String(e2))
+                              }
+                            }}
+                          />
+                          Warmup
+                        </label>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      className="w-fit rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
+                      onClick={async () => {
+                        const nextIndex = (ex.sets?.length ? Math.max(...ex.sets.map((x) => x.set_index)) : 0) + 1
+                        // optimistic row
+                        const tempId = `tmp-${ex.id}-${nextIndex}`
+                        setWorkoutExercises((prev) =>
+                          prev.map((x) =>
+                            x.id === ex.id
+                              ? {
+                                  ...x,
+                                  sets: [
+                                    ...x.sets,
+                                    { id: tempId, set_index: nextIndex, weight: null, reps: null, rir: null, is_warmup: false },
+                                  ],
+                                }
+                              : x
+                          )
+                        )
+                        try {
+                          const res = await fetch('/api/training/workout/set/upsert', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ workout_exercise_id: ex.id, set_index: nextIndex, weight: null, reps: null, rir: null, is_warmup: false }),
+                          })
+                          const json = await res.json().catch(() => null)
+                          if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to add set')
+                          // reload to get real UUIDs
+                          await load()
+                        } catch (e2) {
+                          setErr(e2 instanceof Error ? e2.message : String(e2))
+                        }
+                      }}
+                    >
+                      + Add set
+                    </button>
+                  </div>
+
+                  <label className="mt-3 grid gap-1 text-xs text-slate-300">
+                    Notes
+                    <textarea
+                      className="min-h-16 rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-2 text-sm text-slate-100"
+                      value={ex.note ?? ''}
+                      onChange={(e) => {
+                        const note = e.target.value
+                        setWorkoutExercises((prev) => prev.map((x) => (x.id === ex.id ? { ...x, note } : x)))
+                      }}
+                      onBlur={async () => {
+                        try {
+                          const res = await fetch('/api/training/workout/exercise/update', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ id: ex.id, note: ex.note ?? '' }),
+                          })
+                          const json = await res.json().catch(() => null)
+                          if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                        } catch (e2) {
+                          setErr(e2 instanceof Error ? e2.message : String(e2))
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-slate-300">
+            No workout exercises yet. Create a program and select exercises, then refresh.
+          </p>
+        )}
+      </div>
 
       <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4 text-sm text-slate-300">
         Next: exercise selection UI + 10RM entry per slot, then generate Week 1 weights from your 10RM.
