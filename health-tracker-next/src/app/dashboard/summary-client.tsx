@@ -89,6 +89,29 @@ export function SummaryClient({
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+          <div className="text-sm font-semibold">Sleep</div>
+          <div className="mt-2 text-sm text-slate-200">
+            {stats.sleep.nights ? (
+              <>
+                <div className="text-xs text-slate-400">Last night</div>
+                <div className="text-lg font-semibold">
+                  {stats.sleep.last_duration_min != null
+                    ? `${Math.floor(stats.sleep.last_duration_min / 60)}h ${stats.sleep.last_duration_min % 60}m`
+                    : '—'}
+                </div>
+                <div className="text-xs text-slate-400">
+                  Quality {stats.sleep.last_quality ?? '—'} • Avg {stats.sleep.avg_duration_min != null
+                    ? `${Math.floor(stats.sleep.avg_duration_min / 60)}h ${stats.sleep.avg_duration_min % 60}m`
+                    : '—'} • nights={stats.sleep.nights}
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-slate-300">No sleep in range.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
           <div className="text-sm font-semibold">Vitals (avg)</div>
           <div className="mt-2 text-sm text-slate-200">
             {stats.vitals.n ? (

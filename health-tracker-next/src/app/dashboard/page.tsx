@@ -176,7 +176,7 @@ export default async function DashboardPage({
 
   const summaryWindow = rangeStartEnd(selectedDate, summaryRange)
 
-  const [foodSum, vitalsSum, peptidesSum, weightSum, hydrationSum] = await Promise.all([
+  const [foodSum, vitalsSum, peptidesSum, weightSum, hydrationSum, sleepSum] = await Promise.all([
     supabase
       .from('food_entries')
       .select('calories, protein_g, carbs_g, fat_g')
@@ -205,6 +205,11 @@ export default async function DashboardPage({
       .select('water_ml, sodium_mg, potassium_mg, magnesium_mg')
       .gte('entry_date', summaryWindow.start)
       .lte('entry_date', summaryWindow.end),
+    supabase
+      .from('sleep_entries')
+      .select('entry_date, sleep_start_at, sleep_end_at, quality')
+      .gte('entry_date', summaryWindow.start)
+      .lte('entry_date', summaryWindow.end),
   ])
 
   const vitalsRows = vitalsSum.data ?? []
@@ -225,6 +230,45 @@ export default async function DashboardPage({
   const weightDelta =
     weightFirst != null && weightLast != null ? Number((weightLast - weightFirst).toFixed(1)) : null
 
+  // Sleep summary
+  const sleepRows = sleepSum.data ?? []
+  const sleepDurationsMin = sleepRows
+    .map((r) => {
+      if (!r.sleep_start_at || !r.sleep_end_at) return null
+      const a = new Date(r.sleep_start_at).getTime()
+      const b = new Date(r.sleep_end_at).getTime()
+      if (!Number.isFinite(a) || !Number.isFinite(b)) return null
+      const min = Math.round((b - a) / 60000)
+      return min > 0 ? min : null
+    })
+    .filter((x): x is number => typeof x === 'number')
+
+  const sleepAvgMin = sleepDurationsMin.length
+    ? Math.round(sleepDurationsMin.reduce((s, n) => s + n, 0) / sleepDurationsMin.length)
+    : null
+
+  const sleepQualityVals = sleepRows
+    .map((r) => (r.quality == null ? null : Number(r.quality)))
+    .filter((x): x is number => typeof x === 'number' && Number.isFinite(x))
+
+  const sleepQualityAvg = sleepQualityVals.length
+    ? Number((sleepQualityVals.reduce((s, n) => s + n, 0) / sleepQualityVals.length).toFixed(1))
+    : null
+
+  // "Last night" = entries for selectedDate (wake date). Use the most recent entry.
+  const lastSleep = (sleep ?? []).length ? (sleep ?? [])[0] : null
+  const lastSleepMin =
+    lastSleep?.sleep_start_at && lastSleep?.sleep_end_at
+      ? Math.max(
+          0,
+          Math.round(
+            (new Date(lastSleep.sleep_end_at).getTime() - new Date(lastSleep.sleep_start_at).getTime()) /
+              60000
+          )
+        )
+      : null
+  const lastSleepQuality = lastSleep?.quality != null ? Number(lastSleep.quality) : null
+
   const summaryStats: SummaryStats = {
     range: summaryRange,
     start: summaryWindow.start,
@@ -241,6 +285,14 @@ export default async function DashboardPage({
     magnesium_mg: (hydrationSum.data ?? []).reduce((s, r) => s + Number(r.magnesium_mg ?? 0), 0),
 
     peptides_taken_mcg: (peptidesSum.data ?? []).reduce((s, r) => s + Number(r.actual_dose_mcg ?? 0), 0),
+
+    sleep: {
+      avg_duration_min: sleepAvgMin,
+      quality_avg: sleepQualityAvg,
+      nights: sleepDurationsMin.length,
+      last_duration_min: lastSleepMin,
+      last_quality: lastSleepQuality,
+    },
 
     vitals: {
       systolic_avg: vitalsAgg.n ? Math.round(vitalsAgg.sys / vitalsAgg.n) : null,

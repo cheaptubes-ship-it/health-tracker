@@ -17,6 +17,14 @@ export type SummaryStats = {
 
   peptides_taken_mcg: number
 
+  sleep: {
+    avg_duration_min: number | null
+    quality_avg: number | null
+    nights: number
+    last_duration_min: number | null
+    last_quality: number | null
+  }
+
   vitals: {
     systolic_avg: number | null
     diastolic_avg: number | null
