@@ -372,6 +372,7 @@ export default async function DashboardPage({
     { id: 'summary', label: 'Summary' },
     { id: 'trends', label: 'Trends' },
     { id: 'food', label: 'Food' },
+    { id: 'sleep', label: 'Sleep' },
     { id: 'activity', label: 'Activity' },
     { id: 'training', label: 'Training' },
     { id: 'hydration', label: 'Hydration' },
@@ -483,6 +484,43 @@ export default async function DashboardPage({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Food</h2>
               </div>
+
+              {(() => {
+                const rows = food ?? []
+                const withCals = rows.filter((r) => Number(r.calories ?? 0) > 0)
+                if (!withCals.length) return null
+                const times = withCals
+                  .map((r) => new Date(r.created_at).getTime())
+                  .filter((t) => Number.isFinite(t))
+                  .sort((a, b) => a - b)
+                if (!times.length) return null
+
+                const first = new Date(times[0])
+                const last = new Date(times[times.length - 1])
+                const durMin = Math.max(0, Math.round((times[times.length - 1] - times[0]) / 60000))
+                const h = Math.floor(durMin / 60)
+                const m = durMin % 60
+
+                const fmt = (d: Date) =>
+                  d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+
+                return (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-medium">Eating window</div>
+                        <div className="text-xs text-slate-400">Derived from logged food entries (calories &gt; 0).</div>
+                      </div>
+                      <div className="text-sm text-slate-200">
+                        {fmt(first)} → {fmt(last)}
+                        <span className="ml-2 text-xs text-slate-400">
+                          ({h}h {m}m)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {favorites && favorites.length ? (
                 <div className="space-y-2">
@@ -757,7 +795,7 @@ export default async function DashboardPage({
               totals={hydrationTotals}
               entries={(hydration ?? []) as HydrationEntry[]}
             />
-          ) : tab === 'summary' ? (
+          ) : tab === 'summary' || tab === 'sleep' ? (
             <SummaryClient
               stats={summaryStats}
               selectedDate={selectedDate}
