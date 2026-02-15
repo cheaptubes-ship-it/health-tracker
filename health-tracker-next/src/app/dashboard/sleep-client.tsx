@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 type SleepEntry = {
@@ -39,18 +39,33 @@ export function SleepClient({
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [quality, setQuality] = useState('')
   const [note, setNote] = useState('')
 
-  async function add() {
+  function isoToLocalInput(iso: string | null) {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (!Number.isFinite(d.getTime())) return ''
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  const modeLabel = useMemo(() => (editingId ? 'Update sleep' : 'Save sleep'), [editingId])
+
+  async function save() {
     setError(null)
     setNotice(null)
-    const res = await fetch('/api/sleep/entry', {
+    const endpoint = editingId ? '/api/sleep/update' : '/api/sleep/entry'
+
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
+        id: editingId,
         entry_date: selectedDate,
         sleep_start_at: start || null,
         sleep_end_at: end || null,
@@ -60,7 +75,8 @@ export function SleepClient({
     })
     const json = await res.json().catch(() => null)
     if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to save')
-    setNotice('Saved')
+    setNotice(editingId ? 'Updated' : 'Saved')
+    setEditingId(null)
     setStart('')
     setEnd('')
     setQuality('')
@@ -119,13 +135,33 @@ export function SleepClient({
           />
         </label>
 
-        <button
-          type="button"
-          className="w-fit rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400"
-          onClick={() => void add().catch((e) => setError(e instanceof Error ? e.message : String(e)))}
-        >
-          Save sleep
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="w-fit rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400"
+            onClick={() => void save().catch((e) => setError(e instanceof Error ? e.message : String(e)))}
+          >
+            {modeLabel}
+          </button>
+
+          {editingId ? (
+            <button
+              type="button"
+              className="w-fit rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
+              onClick={() => {
+                setEditingId(null)
+                setStart('')
+                setEnd('')
+                setQuality('')
+                setNote('')
+                setNotice(null)
+                setError(null)
+              }}
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
 
         {notice ? <p className="text-sm text-emerald-400">{notice}</p> : null}
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
@@ -143,17 +179,65 @@ export function SleepClient({
               const min = minutesBetween(e.sleep_start_at, e.sleep_end_at)
               return (
                 <li key={e.id} className="py-3">
-                  <div className="text-sm font-medium text-slate-100">
-                    {min != null ? fmtDuration(min) : '—'}
-                    {e.quality != null ? (
-                      <span className="ml-2 text-xs text-slate-300">Quality {e.quality}/5</span>
-                    ) : null}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-slate-100">
+                        {min != null ? fmtDuration(min) : '—'}
+                        {e.quality != null ? (
+                          <span className="ml-2 text-xs text-slate-300">Quality {e.quality}/5</span>
+                        ) : null}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-400">
+                        {e.sleep_start_at ? new Date(e.sleep_start_at).toLocaleString() : '—'} →{' '}
+                        {e.sleep_end_at ? new Date(e.sleep_end_at).toLocaleString() : '—'}
+                      </div>
+                      {e.note ? (
+                        <div className="mt-1 whitespace-pre-wrap text-xs text-slate-300">{e.note}</div>
+                      ) : null}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="rounded-lg border border-slate-700 bg-slate-950/30 px-2 py-1 text-xs text-slate-100 hover:bg-slate-900/50"
+                        onClick={() => {
+                          setEditingId(e.id)
+                          setStart(isoToLocalInput(e.sleep_start_at))
+                          setEnd(isoToLocalInput(e.sleep_end_at))
+                          setQuality(e.quality != null ? String(e.quality) : '')
+                          setNote(e.note ?? '')
+                          setNotice(null)
+                          setError(null)
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg border border-slate-700 bg-slate-950/10 px-2 py-1 text-xs text-slate-200 hover:bg-slate-900"
+                        onClick={async () => {
+                          try {
+                            setError(null)
+                            setNotice(null)
+                            const res = await fetch('/api/sleep/delete', {
+                              method: 'POST',
+                              headers: { 'content-type': 'application/json' },
+                              body: JSON.stringify({ id: e.id }),
+                            })
+                            const json = await res.json().catch(() => null)
+                            if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to delete')
+                            setNotice('Deleted')
+                            if (editingId === e.id) setEditingId(null)
+                            router.refresh()
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : String(err))
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                  <div className="mt-1 text-xs text-slate-400">
-                    {e.sleep_start_at ? new Date(e.sleep_start_at).toLocaleString() : '—'} →{' '}
-                    {e.sleep_end_at ? new Date(e.sleep_end_at).toLocaleString() : '—'}
-                  </div>
-                  {e.note ? <div className="mt-1 whitespace-pre-wrap text-xs text-slate-300">{e.note}</div> : null}
                 </li>
               )
             })}
