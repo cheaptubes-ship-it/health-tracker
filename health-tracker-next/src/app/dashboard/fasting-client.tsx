@@ -60,6 +60,29 @@ export function FastingClient({ selectedDate }: { selectedDate: string }) {
     return null
   }, [status])
 
+  function isoToLocalInput(iso: string | null) {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (!Number.isFinite(d.getTime())) return ''
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  function localInputToIso(local: string) {
+    if (!local.trim()) return null
+    const d = new Date(local)
+    return Number.isFinite(d.getTime()) ? d.toISOString() : null
+  }
+
+  const [startEdit, setStartEdit] = useState('')
+  const [endEdit, setEndEdit] = useState('')
+
+  useEffect(() => {
+    setStartEdit(isoToLocalInput(row?.fast_start_at ?? null))
+    setEndEdit(isoToLocalInput(row?.fast_end_at ?? null))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row?.fast_start_at, row?.fast_end_at])
+
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -85,6 +108,27 @@ export function FastingClient({ selectedDate }: { selectedDate: string }) {
         <div className="text-xs text-slate-400">
           Start: {status.start ? new Date(status.start).toLocaleString() : '—'}
           {'  '}• End: {status.end ? new Date(status.end).toLocaleString() : '—'}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm text-slate-200">
+            Start (adjust)
+            <input
+              type="datetime-local"
+              value={startEdit}
+              onChange={(e) => setStartEdit(e.target.value)}
+              className="h-10 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100"
+            />
+          </label>
+          <label className="grid gap-1 text-sm text-slate-200">
+            End (adjust)
+            <input
+              type="datetime-local"
+              value={endEdit}
+              onChange={(e) => setEndEdit(e.target.value)}
+              className="h-10 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100"
+            />
+          </label>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -113,7 +157,7 @@ export function FastingClient({ selectedDate }: { selectedDate: string }) {
               }
             }}
           >
-            Start fast
+            Start fast (now)
           </button>
 
           <button
@@ -141,7 +185,39 @@ export function FastingClient({ selectedDate }: { selectedDate: string }) {
               }
             }}
           >
-            End fast
+            End fast (now)
+          </button>
+
+          <button
+            type="button"
+            disabled={busy}
+            className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50 disabled:opacity-50"
+            onClick={async () => {
+              try {
+                setBusy(true)
+                setErr(null)
+                setNotice(null)
+                const res = await fetch('/api/fasting/update', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({
+                    entry_date: selectedDate,
+                    fast_start_at: localInputToIso(startEdit),
+                    fast_end_at: localInputToIso(endEdit),
+                  }),
+                })
+                const json = await res.json().catch(() => null)
+                if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                setNotice('Updated')
+                await load()
+              } catch (e) {
+                setErr(e instanceof Error ? e.message : String(e))
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            Save times
           </button>
 
           <button
