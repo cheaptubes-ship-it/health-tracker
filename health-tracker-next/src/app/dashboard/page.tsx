@@ -23,6 +23,7 @@ import type { SummaryRange, SummaryStats } from './summary-types'
 import { TrainingClient } from './training-client'
 import { ActivityClient } from './activity-client'
 import { SleepClient } from './sleep-client'
+import { FastingClient } from './fasting-client'
 
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10)
@@ -558,6 +559,8 @@ export default async function DashboardPage({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Food</h2>
               </div>
+
+              <FastingClient selectedDate={selectedDate} />
 
               {(() => {
                 const rows = food ?? []
