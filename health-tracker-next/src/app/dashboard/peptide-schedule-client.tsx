@@ -27,6 +27,7 @@ export function PeptideScheduleClient() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [debug, setDebug] = useState<any>(null)
 
   const weekView = useMemo(() => {
     // { timing: { dow: string[] } }
@@ -57,7 +58,19 @@ export function PeptideScheduleClient() {
       setErr(json?.error ?? 'Failed to load')
       return
     }
-    setItems(Array.isArray(json.items) ? json.items : [])
+    const nextItems = Array.isArray(json.items) ? json.items : []
+    setItems(nextItems)
+
+    // If the schedule is unexpectedly empty, fetch a lightweight debug snapshot.
+    if (!nextItems.length) {
+      try {
+        const r2 = await fetch('/api/debug/whoami')
+        const j2 = await r2.json().catch(() => null)
+        if (r2.ok && j2?.ok) setDebug(j2)
+      } catch {
+        // ignore
+      }
+    }
   }
 
   useEffect(() => {
@@ -201,6 +214,22 @@ export function PeptideScheduleClient() {
         </div>
 
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {!items.length && debug ? (
+            <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3 text-xs text-slate-300 sm:col-span-2">
+              <div className="font-semibold text-slate-200">Debug (schedule is empty)</div>
+              <div className="mt-1 grid gap-1">
+                <div>
+                  env: {debug?.env?.vercelEnv ?? '—'} / {debug?.env?.nodeEnv ?? '—'}
+                </div>
+                <div>supabase: {debug?.supabase?.urlHost ?? '—'}</div>
+                <div>user: {debug?.user?.email ?? '—'} ({debug?.user?.id ?? '—'})</div>
+                <div className="text-slate-400">
+                  If you seeded yesterday but it’s empty today, you’re likely in a different environment/project or logged into a different user.
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <label className="grid gap-1 text-sm text-slate-200">
             Peptide
             <input
