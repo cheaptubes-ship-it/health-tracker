@@ -923,7 +923,14 @@ export default async function DashboardPage({
               unitPref={(hydrationTargets?.unit_pref as 'oz' | 'ml') ?? 'oz'}
             />
           ) : tab === 'sleep' ? (
-            <SleepClient selectedDate={selectedDate} entries={(sleep ?? []) as any} />
+            <div className="space-y-6">
+              <SummaryClient
+                stats={summaryStats}
+                selectedDate={selectedDate}
+                unitPref={(hydrationTargets?.unit_pref as 'oz' | 'ml') ?? 'oz'}
+              />
+              <SleepClient selectedDate={selectedDate} entries={(sleep ?? []) as any} />
+            </div>
           ) : tab === 'trends' ? (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Trends (last 30 days)</h2>
