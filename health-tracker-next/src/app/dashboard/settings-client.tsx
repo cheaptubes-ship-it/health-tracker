@@ -167,6 +167,34 @@ export function SettingsClient({
           </div>
 
           <div className="rounded-lg border border-slate-800 bg-slate-950/20 p-3">
+            <div className="text-xs font-semibold text-slate-200">Peptide reminders (Shortcuts)</div>
+            <div className="mt-1 text-xs text-slate-300">
+              These endpoints return what’s due (and filter out doses already logged today). Use <span className="font-mono">format=text</span> for notifications.
+            </div>
+            <div className="mt-2 grid gap-2">
+              <div>
+                <div className="text-xs text-slate-400">AM (text)</div>
+                <div className="break-all font-mono text-xs text-slate-100">
+                  {shortcutsToken
+                    ? `/api/peptides/reminder?token=${shortcutsToken}&timing=am&format=text`
+                    : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-400">PM (text) — includes bedtime</div>
+                <div className="break-all font-mono text-xs text-slate-100">
+                  {shortcutsToken
+                    ? `/api/peptides/reminder?token=${shortcutsToken}&timing=pm&format=text`
+                    : '—'}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-slate-400">
+              Tip: prepend your site URL in Shortcuts, e.g. <span className="font-mono">https://health-tracker-next.vercel.app</span>.
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-800 bg-slate-950/20 p-3">
             <div className="text-xs font-semibold text-slate-200">Import status</div>
             <div className="mt-2 text-xs text-slate-300">
               Steps last import:{' '}
