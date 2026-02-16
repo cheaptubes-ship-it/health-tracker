@@ -18,6 +18,7 @@ export type TemplateMeso = {
   deloadWeekIndex: number
   // weekIndex -> repGoal text; week=deload handled separately
   repGoalsByWeek: Record<number, RepGoal>
+  dayLabels?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>
   slots: TemplateSlot[]
 }
 
@@ -36,6 +37,13 @@ export const MESO1_BASIC_HYPERTROPHY: TemplateMeso = {
     4: '2/fail',
     5: '2/fail',
     6: '1/fail',
+  },
+  dayLabels: {
+    1: 'Chest Upper',
+    2: 'Quads Focused Legs',
+    3: 'Back Upper',
+    4: 'Glute/Ham Focused Legs',
+    5: 'Shoulders/Arms Upper',
   },
   // Day order + default sets observed in the sheet.
   slots: [

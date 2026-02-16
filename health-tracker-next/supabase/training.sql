@@ -45,9 +45,14 @@ create table if not exists public.training_programs (
   current_week int not null default 1,
   current_day int not null default 1, -- 1..5
   inserted_deload_weeks int not null default 0,
+  deload_override boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- If training_programs already exists, migrate safely:
+-- alter table public.training_programs add column if not exists deload_override boolean not null default false;
+
 
 alter table public.training_programs enable row level security;
 

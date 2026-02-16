@@ -23,7 +23,10 @@ type Program = {
   current_week: number
   current_day: number
   inserted_deload_weeks: number
+  deload_override?: boolean
   isDeload: boolean
+  deloadPhase: 'half_weight' | 'half_weight_half_volume' | null
+  dayLabel: string | null
   repGoal: string | null
 }
 
@@ -136,32 +139,162 @@ export function TrainingClient({
           </p>
         </div>
 
-        <button
-          className="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-50"
-          disabled={busy}
-          onClick={async () => {
-            try {
-              setBusy(true)
-              setErr(null)
-              setNotice(null)
-              const res = await fetch('/api/training/program/create', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({}),
-              })
-              const json = await res.json().catch(() => null)
-              if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to create program')
-              setNotice('Created')
-              await load()
-            } catch (e) {
-              setErr(e instanceof Error ? e.message : String(e))
-            } finally {
-              setBusy(false)
-            }
-          }}
-        >
-          {program ? 'Recreate program' : 'Create program'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {program ? (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border border-slate-700 bg-slate-950/20 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/40 disabled:opacity-50"
+                onClick={async () => {
+                  try {
+                    setBusy(true)
+                    setErr(null)
+                    const res = await fetch('/api/training/program/advance', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ dir: 'prev-week' }),
+                    })
+                    const json = await res.json().catch(() => null)
+                    if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                    await load()
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e))
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+              >
+                ← Week
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border border-slate-700 bg-slate-950/20 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/40 disabled:opacity-50"
+                onClick={async () => {
+                  try {
+                    setBusy(true)
+                    setErr(null)
+                    const res = await fetch('/api/training/program/advance', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ dir: 'next-week' }),
+                    })
+                    const json = await res.json().catch(() => null)
+                    if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                    await load()
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e))
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+              >
+                Week →
+              </button>
+
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border border-slate-700 bg-slate-950/20 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/40 disabled:opacity-50"
+                onClick={async () => {
+                  try {
+                    setBusy(true)
+                    setErr(null)
+                    const res = await fetch('/api/training/program/advance', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ dir: 'prev-day' }),
+                    })
+                    const json = await res.json().catch(() => null)
+                    if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                    await load()
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e))
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+              >
+                ← Day
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border border-slate-700 bg-slate-950/20 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/40 disabled:opacity-50"
+                onClick={async () => {
+                  try {
+                    setBusy(true)
+                    setErr(null)
+                    const res = await fetch('/api/training/program/advance', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ dir: 'next-day' }),
+                    })
+                    const json = await res.json().catch(() => null)
+                    if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                    await load()
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e))
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+              >
+                Day →
+              </button>
+
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border border-amber-700 bg-amber-500/10 px-3 py-2 text-sm text-amber-200 hover:bg-amber-500/20 disabled:opacity-50"
+                onClick={async () => {
+                  try {
+                    setBusy(true)
+                    setErr(null)
+                    const res = await fetch('/api/training/program/deload/start', { method: 'POST' })
+                    const json = await res.json().catch(() => null)
+                    if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                    await load()
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e))
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+              >
+                Start deload week
+              </button>
+            </>
+          ) : null}
+
+          <button
+            className="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-50"
+            disabled={busy}
+            onClick={async () => {
+              try {
+                setBusy(true)
+                setErr(null)
+                setNotice(null)
+                const res = await fetch('/api/training/program/create', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({}),
+                })
+                const json = await res.json().catch(() => null)
+                if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to create program')
+                setNotice('Created')
+                await load()
+              } catch (e) {
+                setErr(e instanceof Error ? e.message : String(e))
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            {program ? 'Recreate program' : 'Create program'}
+          </button>
+        </div>
       </div>
 
       {notice ? <p className="text-sm text-emerald-400">{notice}</p> : null}
@@ -175,17 +308,33 @@ export function TrainingClient({
               <div className="text-xs text-slate-400">{program.template_id}</div>
             </div>
             <div className="text-sm text-slate-200">
-              Week {program.current_week} • Day {program.current_day}{' '}
+              Week {program.current_week} • Day {program.current_day}
+              {program.dayLabel ? <span className="ml-2 text-slate-400">({program.dayLabel})</span> : null}
               {program.isDeload ? (
                 <span className="ml-2 rounded bg-amber-500/20 px-2 py-1 text-xs text-amber-200">
-                  DELOAD
+                  DELOAD{program.deloadPhase ? `: ${program.deloadPhase === 'half_weight' ? '½ weight' : '½ weight + ½ volume'}` : ''}
                 </span>
               ) : null}
             </div>
           </div>
 
-          <div className="mt-3 text-sm text-slate-300">
-            Rep goal: <span className="font-mono text-slate-100">{program.repGoal ?? '—'}</span>
+          <div className="mt-3 grid gap-2 text-sm text-slate-300">
+            <div>
+              Rep goal: <span className="font-mono text-slate-100">{program.repGoal ?? '—'}</span>
+            </div>
+            <div className="text-xs text-slate-400">
+              Day focus: <span className="text-slate-200">{program.dayLabel ?? `Day ${program.current_day}`}</span>
+            </div>
+            {program.isDeload ? (
+              <div className="text-xs text-amber-200">
+                Deload mode:{' '}
+                {program.deloadPhase === 'half_weight'
+                  ? '½ weight (first half of week)'
+                  : program.deloadPhase === 'half_weight_half_volume'
+                    ? '½ weight + ½ sets/reps (second half of week)'
+                    : 'deload'}
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-4 grid gap-2">

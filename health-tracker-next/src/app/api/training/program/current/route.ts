@@ -14,7 +14,7 @@ export async function GET() {
 
     const { data: program, error } = await supabase
       .from('training_programs')
-      .select('id, name, template_id, current_week, current_day, inserted_deload_weeks')
+      .select('id, name, template_id, current_week, current_day, inserted_deload_weeks, deload_override')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
@@ -33,12 +33,23 @@ export async function GET() {
 
     if (slotsErr) return NextResponse.json({ ok: false, error: slotsErr.message }, { status: 400 })
 
-    const isDeload = program.current_week === MESO1_BASIC_HYPERTROPHY.deloadWeekIndex
+    const isDeload =
+      Boolean(program.deload_override) || program.current_week === MESO1_BASIC_HYPERTROPHY.deloadWeekIndex
+
+    const deloadPhase = isDeload
+      ? program.current_day <= 3
+        ? 'half_weight'
+        : 'half_weight_half_volume'
+      : null
+
     const repGoal = isDeload ? 'deload' : MESO1_BASIC_HYPERTROPHY.repGoalsByWeek[program.current_week] ?? null
+
+    const dayKey = program.current_day as 1 | 2 | 3 | 4 | 5
+    const dayLabel = MESO1_BASIC_HYPERTROPHY.dayLabels?.[dayKey] ?? null
 
     return NextResponse.json({
       ok: true,
-      program: { ...program, isDeload, repGoal },
+      program: { ...program, isDeload, deloadPhase, dayLabel, repGoal },
       slots: slots ?? [],
     })
   } catch (e) {

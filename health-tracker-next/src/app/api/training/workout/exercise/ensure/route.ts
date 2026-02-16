@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const slot_index = n(body.slot_index)
     const slot_key = typeof body.slot_key === 'string' ? body.slot_key.trim() || null : null
     const exercise_name = typeof body.exercise_name === 'string' ? body.exercise_name.trim() : ''
-    const planned_sets = body.planned_sets == null ? null : n(body.planned_sets)
+    const planned_sets_raw = body.planned_sets == null ? null : n(body.planned_sets)
 
     if (!workout_id) return NextResponse.json({ ok: false, error: 'Missing workout_id' }, { status: 400 })
     if (slot_index == null) return NextResponse.json({ ok: false, error: 'Missing slot_index' }, { status: 400 })
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
     const { data: workout, error: wErr } = await supabase
       .from('training_workouts')
-      .select('id, user_id, program_id, week_index, is_deload')
+      .select('id, user_id, program_id, week_index, is_deload, deload_mode')
       .eq('id', workout_id)
       .maybeSingle()
 
@@ -46,6 +46,12 @@ export async function POST(req: Request) {
         : workout.is_deload
           ? 'deload'
           : null
+
+    // If deload mode is half_weight_half_volume, cut sets in half (round up).
+    const planned_sets =
+      workout.is_deload && workout.deload_mode === 'half_weight_half_volume' && planned_sets_raw != null
+        ? Math.max(1, Math.ceil(planned_sets_raw / 2))
+        : planned_sets_raw
 
     // Create a new "instance" for this slot so previous exercise logs are preserved.
     const { data: existing, error: maxErr } = await supabase

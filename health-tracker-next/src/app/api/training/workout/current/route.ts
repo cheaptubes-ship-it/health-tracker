@@ -37,7 +37,7 @@ export async function GET(req: Request) {
     if (!workout) {
       const { data: program, error } = await supabase
         .from('training_programs')
-        .select('id, template_id, name, current_week, current_day, inserted_deload_weeks')
+        .select('id, template_id, name, current_week, current_day, inserted_deload_weeks, deload_override')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
@@ -45,7 +45,12 @@ export async function GET(req: Request) {
 
       if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
 
-      const isDeload = program ? program.current_week === MESO1_BASIC_HYPERTROPHY.deloadWeekIndex : false
+      const isDeload = program ? (program.current_week === MESO1_BASIC_HYPERTROPHY.deloadWeekIndex || (program as any).deload_override === true) : false
+      const deloadMode: any = isDeload
+        ? (program?.current_day ?? 1) <= 3
+          ? 'half_weight'
+          : 'half_weight_half_volume'
+        : null
       const repGoal =
         program && !isDeload
           ? MESO1_BASIC_HYPERTROPHY.repGoalsByWeek[program.current_week] ?? null
@@ -62,6 +67,7 @@ export async function GET(req: Request) {
           week_index: program?.current_week ?? null,
           day_index: program?.current_day ?? null,
           is_deload: Boolean(isDeload),
+          deload_mode: deloadMode,
         })
         .select('id, entry_date, program_id, week_index, day_index, note')
         .single()
