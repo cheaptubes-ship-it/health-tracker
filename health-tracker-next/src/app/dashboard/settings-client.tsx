@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 export function SettingsClient({
   initial,
+  timezoneInitial,
   shortcutsToken,
   shortcutsStatus,
 }: {
@@ -21,6 +22,7 @@ export function SettingsClient({
       magnesium_mg: number | null
     } | null
   } | null
+  timezoneInitial: string | null
   shortcutsToken: string | null
   shortcutsStatus: {
     steps: { entry_date: string; steps: number | null; updated_at: string | null } | null
@@ -30,6 +32,11 @@ export function SettingsClient({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
+
+  const [tzBusy, setTzBusy] = useState(false)
+  const [tzError, setTzError] = useState<string | null>(null)
+  const [tzOk, setTzOk] = useState<string | null>(null)
+  const [timezone, setTimezone] = useState(timezoneInitial ?? '')
 
   const [hydrationBusy, setHydrationBusy] = useState(false)
   const [hydrationError, setHydrationError] = useState<string | null>(null)
@@ -243,6 +250,61 @@ export function SettingsClient({
           <p className="text-xs text-slate-400">
             Note: for this to work, the server needs <span className="font-mono">SUPABASE_SERVICE_ROLE_KEY</span> set.
           </p>
+        </div>
+      </div>
+
+      <div className="h-px bg-slate-800" />
+
+      <div className="space-y-3 max-w-md">
+        <h3 className="text-base font-semibold">Time zone</h3>
+        <p className="text-sm text-slate-300">
+          Used for “today”, day-of-week schedules, and reminders.
+        </p>
+
+        <div className="grid gap-3">
+          <label className="grid gap-1 text-sm text-slate-200">
+            IANA time zone
+            <input
+              className="w-full rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              placeholder="e.g. America/New_York"
+            />
+            <div className="text-xs text-slate-400">
+              Examples: <span className="font-mono">America/New_York</span>, <span className="font-mono">America/Los_Angeles</span>, <span className="font-mono">Europe/London</span>
+            </div>
+          </label>
+
+          <button
+            type="button"
+            disabled={tzBusy}
+            className="w-fit rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50 disabled:opacity-50"
+            onClick={async () => {
+              try {
+                setTzBusy(true)
+                setTzError(null)
+                setTzOk(null)
+                const res = await fetch('/api/user-settings', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ timezone: timezone.trim() || null }),
+                })
+                const json = await res.json().catch(() => null)
+                if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to save timezone')
+                setTzOk('Saved')
+                window.location.reload()
+              } catch (e) {
+                setTzError(e instanceof Error ? e.message : String(e))
+              } finally {
+                setTzBusy(false)
+              }
+            }}
+          >
+            {tzBusy ? 'Saving…' : 'Save time zone'}
+          </button>
+
+          {tzOk ? <p className="text-sm text-emerald-400">{tzOk}</p> : null}
+          {tzError ? <p className="text-sm text-red-400">{tzError}</p> : null}
         </div>
       </div>
 

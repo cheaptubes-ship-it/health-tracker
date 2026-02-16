@@ -33,6 +33,19 @@ function formatDate(d: Date) {
   return `${y}-${m}-${day}`
 }
 
+function formatDateInTz(tz: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+  const y = parts.find((p) => p.type === 'year')?.value
+  const m = parts.find((p) => p.type === 'month')?.value
+  const d = parts.find((p) => p.type === 'day')?.value
+  return y && m && d ? `${y}-${m}-${d}` : formatDate(new Date())
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -42,7 +55,7 @@ export default async function DashboardPage({
   // If the user didn't explicitly pick a date, keep the URL clean and always default to "today".
   // This avoids getting "stuck" on yesterday when you revisit /dashboard or switch tabs.
   const hasExplicitDate = typeof date === 'string' && date.trim().length > 0
-  const selectedDate = hasExplicitDate ? date : formatDate(new Date())
+  // selectedDate is finalized after we load user settings (timezone)
   const summaryRange: SummaryRange = range ?? 'day'
 
   const supabase = await createSupabaseServerClient()
@@ -60,6 +73,16 @@ export default async function DashboardPage({
       </main>
     )
   }
+
+  // Timezone (per-user). Used for date defaults + day-of-week schedules.
+  const { data: userSettings } = await supabase
+    .from('user_settings')
+    .select('timezone')
+    .maybeSingle()
+
+  const timezone = userSettings?.timezone ?? 'America/New_York'
+
+  const selectedDate = hasExplicitDate ? date : formatDateInTz(timezone)
 
   const [
     { data: food },
@@ -851,6 +874,7 @@ export default async function DashboardPage({
                 steps: stepsLatest?.[0] ?? null,
                 cardio: cardioLatest?.[0] ?? null,
               }}
+              timezoneInitial={timezone}
               initial={
                 targets
                   ? {
@@ -913,6 +937,7 @@ export default async function DashboardPage({
 
               <PeptideQuickLogClient
                 selectedDate={selectedDate}
+                timeZone={timezone}
                 scheduleItems={(peptideSchedule ?? []) as any}
                 takenToday={(peptideTakenToday ?? []) as any}
               />

@@ -16,8 +16,8 @@ type Item = {
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function nyDow() {
-  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' })
+function tzDow(timeZone: string) {
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' })
   const w = fmt.format(new Date())
   const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
   return map[w] ?? new Date().getDay()
@@ -33,10 +33,12 @@ type TakenEntry = {
 
 export function PeptideQuickLogClient({
   selectedDate,
+  timeZone,
   scheduleItems,
   takenToday,
 }: {
   selectedDate: string
+  timeZone: string
   scheduleItems: Item[]
   takenToday: TakenEntry[]
 }) {
@@ -45,7 +47,7 @@ export function PeptideQuickLogClient({
   const [notice, setNotice] = useState<string | null>(null)
   const [lastLoggedEntryId, setLastLoggedEntryId] = useState<string | null>(null)
 
-  const todayDow = nyDow()
+  const todayDow = tzDow(timeZone)
 
   const due = useMemo(() => {
     // IMPORTANT: key by (peptide name, timing).
