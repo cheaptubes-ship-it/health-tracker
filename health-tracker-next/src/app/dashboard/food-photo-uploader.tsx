@@ -2,6 +2,24 @@
 
 import { useState } from 'react'
 
+async function maybeConvertHeicToJpeg(file: File): Promise<File> {
+  const t = (file.type ?? '').toLowerCase()
+  const name = (file.name ?? '').toLowerCase()
+  const looksHeic = t.includes('heic') || t.includes('heif') || name.endsWith('.heic') || name.endsWith('.heif')
+  if (!looksHeic) return file
+
+  // Convert in-browser so iPhone photos “just work”.
+  // heic2any returns a Blob (or Blob[]) depending on options.
+  const mod = await import('heic2any')
+  const heic2any = (mod as any).default ?? mod
+  const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 })
+  const blob = Array.isArray(out) ? out[0] : out
+  if (!(blob instanceof Blob)) return file
+
+  const newName = file.name?.replace(/\.(heic|heif)$/i, '.jpg') || 'meal.jpg'
+  return new File([blob], newName, { type: 'image/jpeg' })
+}
+
 type Estimate = {
   name: string
   calories: number
@@ -24,17 +42,10 @@ export function FoodPhotoUploader({
     setBusy(true)
     setError(null)
 
-    // Client-side guard: iPhone photos are often HEIC/HEIF, which we don't convert yet.
-    const t = (file.type ?? '').toLowerCase()
-    if (t.includes('heic') || t.includes('heif')) {
-      setBusy(false)
-      setError('That photo is HEIC/HEIF (common on iPhone). Please convert/share as JPG or PNG and try again.')
-      return
-    }
-
     try {
+      const converted = await maybeConvertHeicToJpeg(file)
       const fd = new FormData()
-      fd.append('image', file)
+      fd.append('image', converted)
       const res = await fetch('/api/food/estimate', { method: 'POST', body: fd })
       const json = await res.json().catch(() => null)
       if (!res.ok || !json?.ok) {
