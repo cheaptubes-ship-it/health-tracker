@@ -44,6 +44,7 @@ export function HydrationClient({
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [lemonJuice, setLemonJuice] = useState(false)
+  const [servings, setServings] = useState('1')
 
   const unit: 'oz' | 'ml' = targets?.unit_pref ?? 'oz'
 
@@ -134,12 +135,24 @@ export function HydrationClient({
             Lemon juice
           </label>
 
+          <label className="grid gap-1 text-sm text-slate-200">
+            Servings
+            <input
+              value={servings}
+              onChange={(e) => setServings(e.target.value)}
+              inputMode="decimal"
+              className="h-10 w-24 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100"
+              placeholder="1"
+              title="e.g. 0.5 for half a packet"
+            />
+          </label>
+
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               className="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400"
               onClick={() =>
-                void add({ name: 'Water', water_ml: ozToMl(8), lemon_juice: lemonJuice })
+                void add({ name: 'Water', servings, water_ml: ozToMl(8), lemon_juice: lemonJuice })
               }
             >
               + 8 oz water
@@ -148,7 +161,7 @@ export function HydrationClient({
               type="button"
               className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
               onClick={() =>
-                void add({ name: 'Water', water_ml: ozToMl(16), lemon_juice: lemonJuice })
+                void add({ name: 'Water', servings, water_ml: ozToMl(16), lemon_juice: lemonJuice })
               }
             >
               + 16 oz water
@@ -157,7 +170,7 @@ export function HydrationClient({
               type="button"
               className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
               onClick={() =>
-                void add({ name: 'Water', water_ml: ozToMl(32), lemon_juice: lemonJuice })
+                void add({ name: 'Water', servings, water_ml: ozToMl(32), lemon_juice: lemonJuice })
               }
             >
               + 32 oz water
@@ -166,7 +179,7 @@ export function HydrationClient({
               type="button"
               className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
               onClick={() =>
-                void add({ name: 'LMNT (1 packet)', sodium_mg: 1000, potassium_mg: 200, magnesium_mg: 60 })
+                void add({ name: 'LMNT', servings, sodium_mg: 1000, potassium_mg: 200, magnesium_mg: 60 })
               }
             >
               + LMNT
@@ -175,7 +188,7 @@ export function HydrationClient({
               type="button"
               className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
               onClick={() =>
-                void add({ name: 'Propel (1 pkt)', sodium_mg: 230, potassium_mg: 60 })
+                void add({ name: 'Propel', servings, sodium_mg: 230, potassium_mg: 60 })
               }
             >
               + Propel
@@ -195,7 +208,12 @@ export function HydrationClient({
                 <li key={e.id} className="py-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-medium text-slate-100">{e.name}</div>
+                      <div className="text-sm font-medium text-slate-100">
+                        {e.name}
+                        {e.servings != null && Number(e.servings) !== 1 ? (
+                          <span className="ml-2 text-xs text-slate-400">× {Number(e.servings)}</span>
+                        ) : null}
+                      </div>
                       <div className="mt-1 text-xs text-slate-300">
                         {e.water_ml ? `Water ${unit === 'oz' ? `${mlToOz(Number(e.water_ml)).toFixed(1)} oz` : `${Math.round(Number(e.water_ml))} ml`}` : ''}
                         {e.lemon_juice ? ' • Lemon' : ''}

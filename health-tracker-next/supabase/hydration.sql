@@ -8,6 +8,8 @@ create table if not exists public.hydration_entries (
   entry_date date not null default (now() at time zone 'utc')::date,
   name text not null,
 
+  servings numeric not null default 1,
+
   water_ml numeric,
   sodium_mg numeric,
   potassium_mg numeric,
@@ -25,7 +27,8 @@ create index if not exists hydration_entries_user_date_idx
 
 alter table public.hydration_entries enable row level security;
 
--- If hydration_entries already exists (most likely), add the new column safely:
+-- If hydration_entries already exists (most likely), add the new columns safely:
+-- alter table public.hydration_entries add column if not exists servings numeric not null default 1;
 -- alter table public.hydration_entries add column if not exists lemon_juice boolean not null default false;
 
 drop policy if exists "hydration_entries_select_own" on public.hydration_entries;

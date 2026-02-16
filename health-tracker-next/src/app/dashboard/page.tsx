@@ -97,7 +97,7 @@ export default async function DashboardPage({
       .limit(1),
     supabase
       .from('hydration_entries')
-      .select('id, name, water_ml, sodium_mg, potassium_mg, magnesium_mg, caffeine_mg, sugar_g, lemon_juice, created_at')
+      .select('id, name, servings, water_ml, sodium_mg, potassium_mg, magnesium_mg, caffeine_mg, sugar_g, lemon_juice, created_at')
       .eq('entry_date', selectedDate)
       .order('created_at', { ascending: false }),
     supabase

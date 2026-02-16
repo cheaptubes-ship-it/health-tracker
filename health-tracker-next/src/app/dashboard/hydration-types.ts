@@ -1,6 +1,7 @@
 export type HydrationEntry = {
   id: string
   name: string
+  servings: number | null
   water_ml: number | null
   sodium_mg: number | null
   potassium_mg: number | null
