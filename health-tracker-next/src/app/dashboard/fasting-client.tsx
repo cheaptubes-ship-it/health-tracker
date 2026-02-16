@@ -31,14 +31,28 @@ export function FastingClient({ selectedDate }: { selectedDate: string }) {
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
+  const [foodWindow, setFoodWindow] = useState<{ first: string | null; last: string | null; count: number } | null>(null)
+
   async function load() {
-    const res = await fetch(`/api/fasting/status?date=${encodeURIComponent(selectedDate)}`)
+    setErr(null)
+    const [res, res2] = await Promise.all([
+      fetch(`/api/fasting/status?date=${encodeURIComponent(selectedDate)}`),
+      fetch(`/api/food/window?date=${encodeURIComponent(selectedDate)}`),
+    ])
+
     const json = await res.json().catch(() => null)
     if (!res.ok || !json?.ok) {
       setErr(json?.error ?? 'Failed to load fasting')
       return
     }
     setRow(json.window)
+
+    const j2 = await res2.json().catch(() => null)
+    if (res2.ok && j2?.ok) {
+      setFoodWindow({ first: j2.first ?? null, last: j2.last ?? null, count: Number(j2.count ?? 0) })
+    } else {
+      setFoodWindow(null)
+    }
   }
 
   useEffect(() => {
@@ -110,6 +124,20 @@ export function FastingClient({ selectedDate }: { selectedDate: string }) {
           {'  '}• End: {status.end ? new Date(status.end).toLocaleString() : '—'}
         </div>
 
+        <div className="text-xs text-slate-400">
+          Eating window (from food logs):{' '}
+          {foodWindow?.count ? (
+            <>
+              {foodWindow.first ? new Date(foodWindow.first).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '—'}
+              {' '}→{' '}
+              {foodWindow.last ? new Date(foodWindow.last).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '—'}
+              <span className="ml-2">(entries={foodWindow.count})</span>
+            </>
+          ) : (
+            '—'
+          )}
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-sm text-slate-200">
             Start (adjust)
@@ -132,6 +160,33 @@ export function FastingClient({ selectedDate }: { selectedDate: string }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {foodWindow?.count ? (
+            <>
+              <button
+                type="button"
+                disabled={busy || !foodWindow.first}
+                className="rounded-lg border border-slate-700 bg-slate-950/20 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/40 disabled:opacity-50"
+                onClick={() => {
+                  if (!foodWindow.first) return
+                  setEndEdit(isoToLocalInput(foodWindow.first))
+                }}
+              >
+                Set end = first food
+              </button>
+              <button
+                type="button"
+                disabled={busy || !foodWindow.last}
+                className="rounded-lg border border-slate-700 bg-slate-950/20 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/40 disabled:opacity-50"
+                onClick={() => {
+                  if (!foodWindow.last) return
+                  setStartEdit(isoToLocalInput(foodWindow.last))
+                }}
+              >
+                Set start = last food
+              </button>
+            </>
+          ) : null}
+
           <button
             type="button"
             disabled={busy}
