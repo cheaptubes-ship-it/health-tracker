@@ -194,6 +194,36 @@ export function TrainingClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {workout ? (
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-lg border border-slate-700 bg-slate-950/20 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/40 disabled:opacity-50"
+              onClick={async () => {
+                try {
+                  setBusy(true)
+                  setErr(null)
+                  setNotice(null)
+                  const res = await fetch('/api/training/workout/recompute', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ workout_id: workout.id }),
+                  })
+                  const json = await res.json().catch(() => null)
+                  if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                  setNotice(`Recomputed (${json.updated ?? 0})`)
+                  await load()
+                } catch (e) {
+                  setErr(e instanceof Error ? e.message : String(e))
+                } finally {
+                  setBusy(false)
+                }
+              }}
+            >
+              Recompute planned weights
+            </button>
+          ) : null}
+
           {program ? (
             <>
               <div className="flex flex-wrap gap-2 rounded-xl border border-slate-800 bg-slate-900/20 p-2">
