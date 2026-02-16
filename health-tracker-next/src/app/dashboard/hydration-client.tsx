@@ -44,7 +44,7 @@ export function HydrationClient({
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [lemonJuice, setLemonJuice] = useState(false)
-  const [servings, setServings] = useState('1')
+  const [servings, setServings] = useState<'1' | '0.3333' | '0.5' | '0.6667'>('1')
 
   const unit: 'oz' | 'ml' = targets?.unit_pref ?? 'oz'
 
@@ -135,17 +135,34 @@ export function HydrationClient({
             Lemon juice
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-200">
-            Servings
-            <input
-              value={servings}
-              onChange={(e) => setServings(e.target.value)}
-              inputMode="decimal"
-              className="h-10 w-24 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100"
-              placeholder="1"
-              title="e.g. 0.5 for half a packet"
-            />
-          </label>
+          <div className="grid gap-1 text-sm text-slate-200">
+            <div>Servings</div>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { label: '1/3', value: '0.3333' },
+                  { label: '1/2', value: '0.5' },
+                  { label: '2/3', value: '0.6667' },
+                  { label: '1', value: '1' },
+                ] as const
+              ).map((x) => (
+                <button
+                  key={x.value}
+                  type="button"
+                  onClick={() => setServings(x.value)}
+                  className={
+                    'rounded-full border px-3 py-1 text-sm ' +
+                    (servings === x.value
+                      ? 'border-indigo-400 bg-indigo-500/20 text-slate-50'
+                      : 'border-slate-700 bg-slate-950/30 text-slate-100 hover:bg-slate-900/50')
+                  }
+                  aria-pressed={servings === x.value}
+                >
+                  {x.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <button
