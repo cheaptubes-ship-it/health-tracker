@@ -75,9 +75,24 @@ export function PeptideScheduleClient() {
 
   useEffect(() => {
     void load()
+    void (async () => {
+      try {
+        const res = await fetch('/api/peptides/profiles')
+        const json = await res.json().catch(() => null)
+        if (res.ok && json?.ok && Array.isArray(json.items)) {
+          const names = (json.items as any[])
+            .map((x) => String(x?.display_name ?? '').trim())
+            .filter(Boolean)
+          setProfileNames(Array.from(new Set(names)).sort((a, b) => a.localeCompare(b)))
+        }
+      } catch {
+        // ignore
+      }
+    })()
   }, [])
 
   const [name, setName] = useState('')
+  const [profileNames, setProfileNames] = useState<string[]>([])
   const [doseValue, setDoseValue] = useState('')
   const [doseUnit, setDoseUnit] = useState<'u' | 'mcg' | 'mg'>('u')
   const [timing, setTiming] = useState<'am' | 'pm' | 'bedtime'>('am')
@@ -235,9 +250,15 @@ export function PeptideScheduleClient() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
+              list="peptide-profile-names"
               className="h-10 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100"
               placeholder="e.g. BPC-157"
             />
+            <datalist id="peptide-profile-names">
+              {profileNames.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
           </label>
 
           <div className="grid grid-cols-2 gap-2">
