@@ -44,9 +44,16 @@ export async function POST(req: Request) {
       })) as any
     }
 
+    // Ensure there is only one active program per user.
+    await supabase
+      .from('training_programs')
+      .update({ status: 'archived', updated_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+
     const ins = await supabase
       .from('training_programs')
-      .insert({ user_id: user.id, template_id: MESO1_BASIC_HYPERTROPHY.id, name })
+      .insert({ user_id: user.id, template_id: MESO1_BASIC_HYPERTROPHY.id, name, status: 'active' })
       .select('id')
       .single()
 

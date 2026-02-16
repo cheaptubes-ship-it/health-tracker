@@ -31,10 +31,22 @@ export async function POST(req: Request) {
     // Only set deload_override if explicitly provided.
     if ('deload_override' in body) patch.deload_override = deload_override
 
+    const { data: program, error: pErr } = await supabase
+      .from('training_programs')
+      .select('id')
+      .eq('status', 'active')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (pErr) return NextResponse.json({ ok: false, error: pErr.message }, { status: 400 })
+    if (!program?.id) return NextResponse.json({ ok: false, error: 'No active program' }, { status: 404 })
+
     const { error } = await supabase
       .from('training_programs')
       .update(patch)
-      .eq('status', 'active')
+      .eq('id', program.id)
       .eq('user_id', user.id)
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })

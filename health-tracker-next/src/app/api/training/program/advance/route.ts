@@ -22,6 +22,8 @@ export async function POST(req: Request) {
       .select('id, current_week, current_day, deload_override')
       .eq('status', 'active')
       .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
