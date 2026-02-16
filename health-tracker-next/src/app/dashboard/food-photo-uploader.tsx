@@ -23,17 +23,32 @@ export function FoodPhotoUploader({
   async function onPick(file: File) {
     setBusy(true)
     setError(null)
+
+    // Client-side guard: iPhone photos are often HEIC/HEIF, which we don't convert yet.
+    const t = (file.type ?? '').toLowerCase()
+    if (t.includes('heic') || t.includes('heif')) {
+      setBusy(false)
+      setError('That photo is HEIC/HEIF (common on iPhone). Please convert/share as JPG or PNG and try again.')
+      return
+    }
+
     try {
       const fd = new FormData()
       fd.append('image', file)
       const res = await fetch('/api/food/estimate', { method: 'POST', body: fd })
-      const json = await res.json()
+      const json = await res.json().catch(() => null)
       if (!res.ok || !json?.ok) {
-        throw new Error(json?.message ?? json?.error ?? 'Failed to estimate macros')
+        throw new Error(json?.message ?? json?.error ?? `Failed to estimate macros (HTTP ${res.status})`)
       }
       onEstimate(json.estimate)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      const msg = e instanceof Error ? e.message : String(e)
+      // Safari sometimes throws this for fetch failures / unsupported file handling.
+      setError(
+        msg === 'The string did not match the expected pattern.'
+          ? 'Upload failed. If you’re on iPhone, try sharing the photo as JPG/PNG (not HEIC) and retry.'
+          : msg
+      )
     } finally {
       setBusy(false)
     }
