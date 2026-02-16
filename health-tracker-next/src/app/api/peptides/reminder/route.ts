@@ -97,7 +97,26 @@ export async function GET(req: Request) {
       return !takenKeys.has(key(String(it.display_name ?? it.normalized_name ?? ''), t))
     })
 
-    return NextResponse.json({ ok: true, timeZone, entry_date, dow, timing, items })
+    const label = (it: any) => {
+      const name = String(it.display_name ?? it.normalized_name ?? '').trim()
+      const doseVal = it.dose_value == null ? null : Number(it.dose_value)
+      const doseUnit = String(it.dose_unit ?? '').trim()
+      const dose = doseVal != null && Number.isFinite(doseVal) ? `${doseVal}${doseUnit || ''}` : ''
+      return `${name}${dose ? ` (${dose})` : ''}`
+    }
+
+    const lines = items.map(label)
+    const message = lines.length
+      ? `${timing.toUpperCase()} peptides due (${entry_date}):\n` + lines.map((x) => `- ${x}`).join('\n')
+      : `No ${timing.toUpperCase()} peptides due (${entry_date}).`
+
+    // For iOS Shortcuts notifications, plain text is handy.
+    const format = String(url.searchParams.get('format') ?? '').trim()
+    if (format === 'text') {
+      return new Response(message, { headers: { 'content-type': 'text/plain; charset=utf-8' } })
+    }
+
+    return NextResponse.json({ ok: true, timeZone, entry_date, dow, timing, items, message })
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : String(e) },
