@@ -20,6 +20,51 @@ async function maybeConvertHeicToJpeg(file: File): Promise<File> {
   return new File([blob], newName, { type: 'image/jpeg' })
 }
 
+async function downscaleToJpeg(file: File, opts?: { maxDim?: number; targetMaxBytes?: number }) {
+  const maxDim = opts?.maxDim ?? 1600
+  const targetMaxBytes = opts?.targetMaxBytes ?? 3_500_000 // keep under common serverless limits
+
+  // Skip animated GIFs.
+  if ((file.type ?? '').toLowerCase() === 'image/gif') return file
+
+  // If already small enough, do nothing.
+  if (file.size <= targetMaxBytes) return file
+
+  async function fileToImageBitmap(f: File): Promise<ImageBitmap> {
+    // createImageBitmap works in modern browsers (including iOS 16+), and avoids manual <img> decoding.
+    return await createImageBitmap(f)
+  }
+
+  const bmp = await fileToImageBitmap(file)
+  const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height))
+  const w = Math.max(1, Math.round(bmp.width * scale))
+  const h = Math.max(1, Math.round(bmp.height * scale))
+
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return file
+  ctx.drawImage(bmp, 0, 0, w, h)
+
+  async function toJpeg(quality: number): Promise<Blob | null> {
+    return await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', quality))
+  }
+
+  // Try a couple qualities to get under the byte limit.
+  const qualities = [0.85, 0.75, 0.65]
+  for (const q of qualities) {
+    const blob = await toJpeg(q)
+    if (blob && blob.size <= targetMaxBytes) {
+      return new File([blob], 'meal.jpg', { type: 'image/jpeg' })
+    }
+  }
+
+  // Fallback: return the last attempt even if it's still large (better than original png).
+  const blob = await toJpeg(0.6)
+  return blob ? new File([blob], 'meal.jpg', { type: 'image/jpeg' }) : file
+}
+
 type Estimate = {
   name: string
   calories: number
@@ -44,8 +89,9 @@ export function FoodPhotoUploader({
 
     try {
       const converted = await maybeConvertHeicToJpeg(file)
+      const prepared = await downscaleToJpeg(converted)
       const fd = new FormData()
-      fd.append('image', converted)
+      fd.append('image', prepared)
       const res = await fetch('/api/food/estimate', { method: 'POST', body: fd })
       const json = await res.json().catch(() => null)
       if (!res.ok || !json?.ok) {
