@@ -48,8 +48,17 @@ export function PeptideQuickLogClient({
   const todayDow = nyDow()
 
   const due = useMemo(() => {
+    // IMPORTANT: key by (peptide name, timing).
+    // Some peptides have multiple doses per day (e.g. BPC-157 AM + Bedtime).
+    // If we key by name only, logging the AM dose would incorrectly hide the Bedtime dose.
     const takenKeys = new Set(
-      (takenToday ?? []).map((e) => peptideKey(String(e.name ?? ''))).filter(Boolean)
+      (takenToday ?? [])
+        .map((e) => {
+          const k = peptideKey(String(e.name ?? ''))
+          const t = String(e.timing ?? '').trim() || 'unknown'
+          return k ? `${k}__${t}` : ''
+        })
+        .filter(Boolean)
     )
 
     const active = scheduleItems.filter((s) => s.active)
@@ -58,7 +67,9 @@ export function PeptideQuickLogClient({
     // Hide items already logged today (by peptide name key)
     const notLogged = matchesDay.filter((s) => {
       const key = peptideKey(s.display_name ?? s.normalized_name)
-      return key && !takenKeys.has(key)
+      const t = String(s.timing ?? '').trim() || 'unknown'
+      const composite = key ? `${key}__${t}` : ''
+      return composite && !takenKeys.has(composite)
     })
 
     // Bedtime merged into PM
