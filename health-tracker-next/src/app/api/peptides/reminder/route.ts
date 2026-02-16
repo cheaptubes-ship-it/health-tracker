@@ -3,15 +3,28 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
 
-function nyDow() {
-  // 0=Sun..6=Sat in America/New_York
+function tzDow(timeZone: string) {
+  // 0=Sun..6=Sat in a given timezone
   const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
+    timeZone,
     weekday: 'short',
   })
   const w = fmt.format(new Date())
   const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
   return map[w] ?? new Date().getDay()
+}
+
+function tzTodayYmd(timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+  const y = parts.find((p) => p.type === 'year')?.value
+  const m = parts.find((p) => p.type === 'month')?.value
+  const d = parts.find((p) => p.type === 'day')?.value
+  return y && m && d ? `${y}-${m}-${d}` : new Date().toISOString().slice(0, 10)
 }
 
 export async function GET(req: Request) {
@@ -36,7 +49,16 @@ export async function GET(req: Request) {
     if (tErr) return NextResponse.json({ ok: false, error: tErr.message }, { status: 400 })
     if (!tokenRow?.user_id) return NextResponse.json({ ok: false, error: 'Invalid token' }, { status: 401 })
 
-    const dow = nyDow()
+    // Timezone (per-user; defaults to America/New_York)
+    const { data: settings } = await supabase
+      .from('user_settings')
+      .select('timezone')
+      .eq('user_id', tokenRow.user_id)
+      .maybeSingle()
+
+    const timeZone = settings?.timezone ?? 'America/New_York'
+    const dow = tzDow(timeZone)
+    const entry_date = tzTodayYmd(timeZone)
 
     // Merge bedtime into PM
     const timingList = timing === 'pm' ? ['pm', 'bedtime'] : ['am']
@@ -53,7 +75,29 @@ export async function GET(req: Request) {
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
 
-    return NextResponse.json({ ok: true, dow, timing, items: data ?? [] })
+    // Filter out doses already taken today (by name+timing)
+    const { data: taken } = await supabase
+      .from('peptide_entries')
+      .select('name, timing')
+      .eq('user_id', tokenRow.user_id)
+      .eq('entry_date', entry_date)
+      .eq('status', 'taken')
+
+    const key = (name: string, t: string) =>
+      `${String(name ?? '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')}__${String(t ?? '').trim() || 'unknown'}`
+
+    const takenKeys = new Set((taken ?? []).map((r: any) => key(String(r.name ?? ''), String(r.timing ?? ''))))
+
+    const items = (data ?? []).filter((it: any) => {
+      const t = String(it.timing ?? '')
+      return !takenKeys.has(key(String(it.display_name ?? it.normalized_name ?? ''), t))
+    })
+
+    return NextResponse.json({ ok: true, timeZone, entry_date, dow, timing, items })
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : String(e) },
