@@ -1,8 +1,0 @@
-{
-  "version": 2,
-  "framework": "nextjs",
-  "installCommand": "cd health-tracker-next && npm install",
-  "buildCommand": "cd health-tracker-next && npm run build",
-  "devCommand": "cd health-tracker-next && npm run dev",
-  "outputDirectory": "health-tracker-next/.next"
-}
