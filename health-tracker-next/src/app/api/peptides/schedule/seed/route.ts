@@ -32,7 +32,7 @@ export async function POST() {
     const WEEKDAYS = [1, 2, 3, 4, 5]
 
     const rows: any[] = [
-      // BPC-157: 5u AM + 5u PM, every day
+      // BPC-157: 5u AM + 5u Bedtime, every day
       {
         user_id: user.id,
         normalized_name: peptideKey('BPC-157'),
@@ -49,7 +49,7 @@ export async function POST() {
         display_name: 'BPC-157',
         dose_value: 5,
         dose_unit: 'u',
-        timing: 'pm',
+        timing: 'bedtime',
         days_of_week: ALL_DAYS,
         active: true,
       },
@@ -78,14 +78,14 @@ export async function POST() {
         active: true,
       },
 
-      // TA-1: Tue/Fri, 30u, PM
+      // TA-1: Tue/Fri, 30u, Bedtime
       {
         user_id: user.id,
         normalized_name: peptideKey('TA-1'),
         display_name: 'TA-1 (Thymosin Alpha-1)',
         dose_value: 30,
         dose_unit: 'u',
-        timing: 'pm',
+        timing: 'bedtime',
         days_of_week: [2, 5],
         active: true,
       },

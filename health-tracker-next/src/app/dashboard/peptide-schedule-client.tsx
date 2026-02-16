@@ -160,6 +160,30 @@ export function PeptideScheduleClient() {
                   setBusy(true)
                   setErr(null)
                   setNotice(null)
+                  const res = await fetch('/api/peptides/schedule/fix-bedtime', { method: 'POST' })
+                  const json = await res.json().catch(() => null)
+                  if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                  setNotice(`Moved to bedtime (${json?.updated ?? 0} items)`)
+                  await load()
+                } catch (e) {
+                  setErr(e instanceof Error ? e.message : String(e))
+                } finally {
+                  setBusy(false)
+                }
+              }}
+            >
+              Move 157 + TA-1 → Bedtime
+            </button>
+
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-lg border border-slate-700 bg-slate-950/10 px-3 py-2 text-sm text-slate-200 hover:bg-slate-900 disabled:opacity-50"
+              onClick={async () => {
+                try {
+                  setBusy(true)
+                  setErr(null)
+                  setNotice(null)
                   const res = await fetch('/api/peptides/profiles/seed', { method: 'POST' })
                   const json = await res.json().catch(() => null)
                   if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to seed profiles')

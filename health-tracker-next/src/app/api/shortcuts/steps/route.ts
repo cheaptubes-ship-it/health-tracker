@@ -34,7 +34,13 @@ export async function POST(req: Request) {
       const y = parts.find((p) => p.type === 'year')?.value
       const m = parts.find((p) => p.type === 'month')?.value
       const d = parts.find((p) => p.type === 'day')?.value
-      return y && m && d ? `${y}-${m}-${d}` : new Date().toISOString().slice(0, 10)
+      if (y && m && d) return `${y}-${m}-${d}`
+      // Fallback: local calendar date
+      const now = new Date()
+      const yy = now.getFullYear()
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const dd = String(now.getDate()).padStart(2, '0')
+      return `${yy}-${mm}-${dd}`
     }
 
     const entry_date = entry_date_raw || (entry_ts ? entry_ts.slice(0, 10) : '') || todayYmdNY()

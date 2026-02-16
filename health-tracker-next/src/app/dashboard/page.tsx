@@ -26,7 +26,11 @@ import { SleepClient } from './sleep-client'
 import { FastingClient } from './fasting-client'
 
 function formatDate(d: Date) {
-  return d.toISOString().slice(0, 10)
+  // Local calendar date (NOT UTC). Using toISOString() will flip the day early in US time zones.
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export default async function DashboardPage({
@@ -39,7 +43,7 @@ export default async function DashboardPage({
   // This avoids getting "stuck" on yesterday when you revisit /dashboard or switch tabs.
   const hasExplicitDate = typeof date === 'string' && date.trim().length > 0
   const selectedDate = hasExplicitDate ? date : formatDate(new Date())
-  const summaryRange: SummaryRange = range ?? 'week'
+  const summaryRange: SummaryRange = range ?? 'day'
 
   const supabase = await createSupabaseServerClient()
   const {
@@ -191,7 +195,7 @@ export default async function DashboardPage({
   function addDays(ymd: string, delta: number) {
     const d = new Date(ymd + 'T00:00:00')
     d.setDate(d.getDate() + delta)
-    return d.toISOString().slice(0, 10)
+    return formatDate(d)
   }
 
   function rangeStartEnd(endYmd: string, r: SummaryRange) {
@@ -342,7 +346,7 @@ export default async function DashboardPage({
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
-    dayKeys.push(d.toISOString().slice(0, 10))
+    dayKeys.push(formatDate(d))
   }
 
   const [food30, vitals30, peptides30, weight30] = await Promise.all([
