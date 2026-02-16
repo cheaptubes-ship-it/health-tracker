@@ -524,7 +524,17 @@ export function TrainingClient({
                     {ex ? (
                       <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/20 p-3">
                         <div className="flex flex-wrap items-end justify-between gap-3">
-                          <div className="text-xs text-slate-400">Workout log</div>
+                          <div className="text-xs text-slate-400">
+                            Workout log
+                            {ex.planned_sets != null || ex.planned_rep_goal || ex.planned_weight != null ? (
+                              <span className="ml-2 text-slate-500">
+                                plan:{' '}
+                                {ex.planned_sets != null ? `${ex.planned_sets} sets` : '—'}
+                                {ex.planned_rep_goal ? ` • ${ex.planned_rep_goal}` : ''}
+                                {ex.planned_weight != null ? ` • ${ex.planned_weight}` : ''}
+                              </span>
+                            ) : null}
+                          </div>
                           <label className="grid gap-1 text-xs text-slate-300">
                             Feedback
                             <select

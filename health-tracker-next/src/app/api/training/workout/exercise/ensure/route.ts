@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { MESO1_BASIC_HYPERTROPHY } from '@/lib/training/template-meso1'
+import { plannedWeightFromTenRm } from '@/lib/training/weight-logic'
 
 export const runtime = 'nodejs'
 
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
 
     const { data: workout, error: wErr } = await supabase
       .from('training_workouts')
-      .select('id, user_id, program_id, week_index, is_deload, deload_mode')
+      .select('id, user_id, program_id, week_index, day_index, is_deload, deload_mode')
       .eq('id', workout_id)
       .maybeSingle()
 
@@ -67,6 +68,30 @@ export async function POST(req: Request) {
 
     const nextInstance = (existing?.slot_instance ? Number(existing.slot_instance) : 0) + 1
 
+    // Planned weight from current slot 10RM + rep goal
+    const { data: slot } = workout.program_id
+      ? await supabase
+          .from('training_program_slots')
+          .select('ten_rm_weight, ten_rm_unit')
+          .eq('program_id', workout.program_id)
+          .eq('day_index', workout.day_index)
+          .eq('slot_index', slot_index)
+          .maybeSingle()
+      : { data: null }
+
+    const deloadPhase = workout.is_deload
+      ? workout.deload_mode === 'half_weight_half_volume'
+        ? 'half_weight_half_volume'
+        : 'half_weight'
+      : null
+
+    const planned_weight = plannedWeightFromTenRm({
+      tenRmWeight: (slot as any)?.ten_rm_weight ?? null,
+      unit: ((slot as any)?.ten_rm_unit as any) ?? 'lb',
+      repGoal,
+      deloadPhase,
+    })
+
     const payload: any = {
       workout_id,
       slot_index,
@@ -75,6 +100,7 @@ export async function POST(req: Request) {
       exercise_name,
       planned_sets,
       planned_rep_goal: repGoal,
+      planned_weight,
     }
 
     const { data: ex, error } = await supabase

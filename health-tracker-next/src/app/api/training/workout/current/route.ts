@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { MESO1_BASIC_HYPERTROPHY } from '@/lib/training/template-meso1'
+import { plannedWeightFromTenRm } from '@/lib/training/weight-logic'
 
 export const runtime = 'nodejs'
 
@@ -79,7 +80,7 @@ export async function GET(req: Request) {
       if (program) {
         const { data: slots, error: slotsErr } = await supabase
           .from('training_program_slots')
-          .select('slot_index, slot_key, exercise_name, default_sets')
+          .select('slot_index, slot_key, exercise_name, default_sets, ten_rm_weight, ten_rm_unit')
           .eq('program_id', program.id)
           .eq('day_index', program.current_day)
           .order('slot_index', { ascending: true })
@@ -96,6 +97,12 @@ export async function GET(req: Request) {
             exercise_name: s.exercise_name as string,
             planned_sets: s.default_sets ?? null,
             planned_rep_goal: repGoal,
+            planned_weight: plannedWeightFromTenRm({
+              tenRmWeight: (s as any).ten_rm_weight ?? null,
+              unit: ((s as any).ten_rm_unit as any) ?? 'lb',
+              repGoal,
+              deloadPhase: deloadMode,
+            }),
           }))
 
         if (seeds.length) {
