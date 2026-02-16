@@ -29,7 +29,7 @@ export function FoodPhotoUploader({
       const res = await fetch('/api/food/estimate', { method: 'POST', body: fd })
       const json = await res.json()
       if (!res.ok || !json?.ok) {
-        throw new Error(json?.error ?? 'Failed to estimate macros')
+        throw new Error(json?.message ?? json?.error ?? 'Failed to estimate macros')
       }
       onEstimate(json.estimate)
     } catch (e) {

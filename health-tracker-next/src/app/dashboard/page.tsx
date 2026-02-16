@@ -230,7 +230,7 @@ export default async function DashboardPage({
 
   const summaryWindow = rangeStartEnd(selectedDate, summaryRange)
 
-  const [foodSum, vitalsSum, peptidesSum, weightSum, hydrationSum, sleepSum] = await Promise.all([
+  const [foodSum, vitalsSum, peptidesSum, weightSum, hydrationSum, sleepSum, fastingWin] = await Promise.all([
     supabase
       .from('food_entries')
       .select('calories, protein_g, carbs_g, fat_g')
@@ -264,6 +264,12 @@ export default async function DashboardPage({
       .select('entry_date, sleep_start_at, sleep_end_at, quality')
       .gte('entry_date', summaryWindow.start)
       .lte('entry_date', summaryWindow.end),
+    // Fasting is a point-in-time status; we show it for the currently selected date.
+    supabase
+      .from('fasting_windows')
+      .select('fast_start_at, fast_end_at')
+      .eq('entry_date', selectedDate)
+      .maybeSingle(),
   ])
 
   const vitalsRows = vitalsSum.data ?? []
@@ -323,10 +329,14 @@ export default async function DashboardPage({
       : null
   const lastSleepQuality = lastSleep?.quality != null ? Number(lastSleep.quality) : null
 
+  const fastingActive = !!fastingWin.data?.fast_start_at && !fastingWin.data?.fast_end_at
+
   const summaryStats: SummaryStats = {
     range: summaryRange,
     start: summaryWindow.start,
     end: summaryWindow.end,
+
+    fasting_active: fastingActive,
 
     calories: (foodSum.data ?? []).reduce((s, r) => s + Number(r.calories ?? 0), 0),
     protein_g: (foodSum.data ?? []).reduce((s, r) => s + Number(r.protein_g ?? 0), 0),

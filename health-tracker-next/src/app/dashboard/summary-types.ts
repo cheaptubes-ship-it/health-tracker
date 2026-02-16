@@ -5,6 +5,9 @@ export type SummaryStats = {
   start: string // YYYY-MM-DD
   end: string // YYYY-MM-DD
 
+  // True when a fasting window is currently in progress for the selected date.
+  fasting_active: boolean
+
   calories: number
   protein_g: number
   carbs_g: number

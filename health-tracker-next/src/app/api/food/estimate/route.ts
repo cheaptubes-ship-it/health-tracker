@@ -42,13 +42,39 @@ export async function POST(req: Request) {
   const bytes = Buffer.from(await file.arrayBuffer())
   const mime = file.type && file.type.includes('/') ? file.type : 'image/jpeg'
 
+  // OpenAI vision currently supports common raster formats; HEIC/HEIF is a frequent iPhone format.
+  // We don't have an image conversion pipeline here yet, so fail fast with a helpful message.
+  if (/image\/(heic|heif)/i.test(mime)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'unsupported_image_format',
+        message: 'That image looks like HEIC/HEIF (common on iPhone). Please convert/share as JPG or PNG and try again.',
+      },
+      { status: 400 }
+    )
+  }
+
+  const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+  if (!allowed.has(mime)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'unsupported_image_format',
+        message: `Unsupported image type: ${mime}. Please use JPG, PNG, WebP, or GIF.`,
+      },
+      { status: 400 }
+    )
+  }
+
   const client = new OpenAI({ apiKey })
 
   // Upload the image and reference it by file_id to avoid data-url parsing issues.
   let fileId: string | null = null
   try {
+    const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : mime === 'image/gif' ? 'gif' : 'jpg'
     const up = await client.files.create({
-      file: await toFile(bytes, 'meal.jpg', { type: mime }),
+      file: await toFile(bytes, `meal.${ext}`, { type: mime }),
       purpose: 'vision',
     })
     fileId = up.id

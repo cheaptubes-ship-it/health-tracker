@@ -53,7 +53,10 @@ export function SummaryClient({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
-          <div className="text-sm font-semibold">Food (totals)</div>
+          <div className="text-sm font-semibold">
+            Food (totals)
+            {stats.fasting_active ? <span className="ml-2 text-xs text-slate-400">(fasting)</span> : null}
+          </div>
           <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
             <div>
               <div className="text-xs text-slate-400">Calories</div>
