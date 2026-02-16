@@ -148,13 +148,14 @@ export function SummaryClient({
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4 sm:col-span-2">
+        <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
           <div className="text-sm font-semibold">Peptides taken</div>
           <div className="mt-2 text-lg font-semibold">
             {stats.peptides_taken_mcg >= 1000
               ? `${(stats.peptides_taken_mcg / 1000).toFixed(2)} mg`
               : `${Math.round(stats.peptides_taken_mcg)} mcg`}
           </div>
+          <div className="mt-1 text-xs text-slate-400">Total in range</div>
         </div>
       </div>
     </div>
