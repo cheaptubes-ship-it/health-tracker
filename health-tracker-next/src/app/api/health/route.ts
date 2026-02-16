@@ -17,3 +17,4 @@ export async function GET() {
     error: error ? { message: error.message, details: 'details' in error ? String((error as unknown as { details?: unknown }).details ?? '') : '' } : null,
   })
 }
+// redeploy ping Mon Feb 16 06:37:02 EST 2026
