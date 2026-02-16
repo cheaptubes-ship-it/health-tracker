@@ -247,6 +247,58 @@ export function TrainingClient({
               <button
                 type="button"
                 disabled={busy}
+                className="rounded-lg border border-slate-700 bg-slate-950/20 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/40 disabled:opacity-50"
+                onClick={async () => {
+                  try {
+                    setBusy(true)
+                    setErr(null)
+                    const res = await fetch('/api/training/program/advance', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ dir: 'prev-week' }),
+                    })
+                    const json = await res.json().catch(() => null)
+                    if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                    await load()
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e))
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+              >
+                ← Week
+              </button>
+
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded-lg border border-slate-700 bg-slate-950/20 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/40 disabled:opacity-50"
+                onClick={async () => {
+                  try {
+                    setBusy(true)
+                    setErr(null)
+                    const res = await fetch('/api/training/program/advance', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ dir: 'next-week' }),
+                    })
+                    const json = await res.json().catch(() => null)
+                    if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                    await load()
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e))
+                  } finally {
+                    setBusy(false)
+                  }
+                }}
+              >
+                Week →
+              </button>
+
+              <button
+                type="button"
+                disabled={busy}
                 className="rounded-lg border border-amber-700 bg-amber-500/10 px-3 py-2 text-sm text-amber-200 hover:bg-amber-500/20 disabled:opacity-50"
                 onClick={async () => {
                   try {
