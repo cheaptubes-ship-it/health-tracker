@@ -47,9 +47,24 @@ export async function POST(req: Request) {
           ? 'deload'
           : null
 
+    // Create a new "instance" for this slot so previous exercise logs are preserved.
+    const { data: existing, error: maxErr } = await supabase
+      .from('training_workout_exercises')
+      .select('slot_instance')
+      .eq('workout_id', workout_id)
+      .eq('slot_index', slot_index)
+      .order('slot_instance', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (maxErr) return NextResponse.json({ ok: false, error: maxErr.message }, { status: 400 })
+
+    const nextInstance = (existing?.slot_instance ? Number(existing.slot_instance) : 0) + 1
+
     const payload: any = {
       workout_id,
       slot_index,
+      slot_instance: nextInstance,
       slot_key,
       exercise_name,
       planned_sets,
@@ -58,7 +73,7 @@ export async function POST(req: Request) {
 
     const { data: ex, error } = await supabase
       .from('training_workout_exercises')
-      .upsert(payload, { onConflict: 'workout_id,slot_index' })
+      .insert(payload)
       .select('id')
       .single()
 

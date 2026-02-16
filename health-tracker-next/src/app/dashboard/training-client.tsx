@@ -52,6 +52,7 @@ export function TrainingClient({
   type WorkoutExercise = {
     id: string
     slot_index: number
+    slot_instance: number
     slot_key: string | null
     exercise_name: string
     planned_sets: number | null
@@ -73,8 +74,12 @@ export function TrainingClient({
   const [workoutExercises, setWorkoutExercises] = useState<WorkoutExercise[]>([])
 
   const exBySlot = useCallback(() => {
+    // pick the latest instance per slot
     const map = new Map<number, WorkoutExercise>()
-    for (const ex of workoutExercises) map.set(ex.slot_index, ex)
+    for (const ex of workoutExercises) {
+      const cur = map.get(ex.slot_index)
+      if (!cur || Number(ex.slot_instance) > Number(cur.slot_instance)) map.set(ex.slot_index, ex)
+    }
     return map
   }, [workoutExercises])
 
@@ -186,7 +191,9 @@ export function TrainingClient({
           <div className="mt-4 grid gap-2">
             {slots.map((s) => {
               const ex = exBySlot().get(s.slot_index) ?? null
-              const hasLoggedData = Boolean(ex && (ex.rating != null || (ex.sets ?? []).some((x) => x.weight != null || x.reps != null || x.rir != null)))
+              const hasLoggedData = Boolean(
+                ex && (ex.rating != null || (ex.sets ?? []).some((x) => x.weight != null || x.reps != null || x.rir != null))
+              )
 
               return (
                 <div
@@ -620,7 +627,7 @@ export function TrainingClient({
         </div>
       )}
 
-      <div className="hidden rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+      <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
         <div className="flex items-baseline justify-between gap-3">
           <div>
             <h3 className="font-medium">Workout log</h3>
@@ -633,7 +640,22 @@ export function TrainingClient({
 
         {workoutExercises.length ? (
           <div className="mt-3 grid gap-3">
-            {workoutExercises.map((ex) => (
+            {(() => {
+              const maxBySlot = new Map<number, number>()
+              for (const ex of workoutExercises) {
+                const cur = maxBySlot.get(ex.slot_index) ?? 0
+                const next = Number(ex.slot_instance ?? 0)
+                if (next > cur) maxBySlot.set(ex.slot_index, next)
+              }
+              const prev = workoutExercises.filter(
+                (ex) => Number(ex.slot_instance ?? 0) < (maxBySlot.get(ex.slot_index) ?? 0)
+              )
+
+              if (!prev.length) {
+                return <div className="text-sm text-slate-400">No previous exercises logged for today.</div>
+              }
+
+              return prev.map((ex) => (
               <div key={ex.id} className="rounded-lg border border-slate-800 bg-slate-950/10 p-3">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
@@ -896,7 +918,8 @@ export function TrainingClient({
                   </label>
                 </div>
               </div>
-            ))}
+              ))
+            })()}
           </div>
         ) : (
           <p className="mt-3 text-sm text-slate-300">

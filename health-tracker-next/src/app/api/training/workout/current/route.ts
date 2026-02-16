@@ -85,6 +85,7 @@ export async function GET(req: Request) {
           .map((s) => ({
             workout_id: workout!.id,
             slot_index: s.slot_index,
+            slot_instance: 1,
             slot_key: s.slot_key,
             exercise_name: s.exercise_name as string,
             planned_sets: s.default_sets ?? null,
@@ -95,7 +96,7 @@ export async function GET(req: Request) {
           // avoid duplicates if called twice
           const { error: exErr } = await supabase
             .from('training_workout_exercises')
-            .upsert(seeds, { onConflict: 'workout_id,slot_index' })
+            .upsert(seeds, { onConflict: 'workout_id,slot_index,slot_instance' })
           if (exErr) return NextResponse.json({ ok: false, error: exErr.message }, { status: 400 })
         }
       }
@@ -104,9 +105,10 @@ export async function GET(req: Request) {
     // Load exercises
     const { data: exercises, error: exErr } = await supabase
       .from('training_workout_exercises')
-      .select('id, slot_index, slot_key, exercise_name, planned_sets, planned_rep_goal, planned_weight, rating, note')
+      .select('id, slot_index, slot_instance, slot_key, exercise_name, planned_sets, planned_rep_goal, planned_weight, rating, note')
       .eq('workout_id', workout!.id)
       .order('slot_index', { ascending: true })
+      .order('slot_instance', { ascending: true })
 
     if (exErr) return NextResponse.json({ ok: false, error: exErr.message }, { status: 400 })
 

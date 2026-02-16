@@ -180,6 +180,7 @@ create table if not exists public.training_workout_exercises (
   id uuid primary key default gen_random_uuid(),
   workout_id uuid not null references public.training_workouts(id) on delete cascade,
   slot_index int not null,
+  slot_instance int not null default 1,
   slot_key text,
   exercise_name text not null,
   planned_sets int,
@@ -189,8 +190,14 @@ create table if not exists public.training_workout_exercises (
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (workout_id, slot_index)
+  unique (workout_id, slot_index, slot_instance)
 );
+
+-- If training_workout_exercises already exists, migrate safely:
+-- alter table public.training_workout_exercises add column if not exists slot_instance int not null default 1;
+-- alter table public.training_workout_exercises drop constraint if exists training_workout_exercises_workout_id_slot_index_key;
+-- alter table public.training_workout_exercises add constraint training_workout_exercises_workout_id_slot_index_slot_instance_key unique (workout_id, slot_index, slot_instance);
+
 
 alter table public.training_workout_exercises enable row level security;
 
