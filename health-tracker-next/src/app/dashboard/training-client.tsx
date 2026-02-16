@@ -43,6 +43,10 @@ export function TrainingClient({
   const [slots, setSlots] = useState<Slot[]>([])
   const [options, setOptions] = useState<Record<string, ExerciseOption[]>>({})
 
+  const [templateFile, setTemplateFile] = useState<File | null>(null)
+  const [templateInfo, setTemplateInfo] = useState<{ bucket: string | null; path: string | null; sheet: string | null } | null>(null)
+  const [templateBusy, setTemplateBusy] = useState(false)
+
   type Workout = {
     id: string
     entry_date: string
@@ -127,6 +131,15 @@ export function TrainingClient({
 
   useEffect(() => {
     void load()
+    void (async () => {
+      try {
+        const res = await fetch('/api/training/template')
+        const json = await res.json().catch(() => null)
+        if (res.ok && json?.ok && json.template) setTemplateInfo(json.template)
+      } catch {
+        // ignore
+      }
+    })()
   }, [load])
 
   return (
@@ -135,8 +148,49 @@ export function TrainingClient({
         <div>
           <h2 className="text-lg font-semibold">Training</h2>
           <p className="text-sm text-slate-300">
-            Mesocycle 1 (v1). We’ll add the full 10RM→weight logic next.
+            Mesocycle 1 (v1). Upload your template once; “Create/Recreate program” will seed from it.
           </p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              accept=".xlsx"
+              onChange={(e) => setTemplateFile(e.target.files?.[0] ?? null)}
+              className="text-xs text-slate-300"
+            />
+            <button
+              type="button"
+              disabled={templateBusy || !templateFile}
+              className="rounded-lg border border-slate-700 bg-slate-950/20 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/40 disabled:opacity-50"
+              onClick={async () => {
+                if (!templateFile) return
+                try {
+                  setTemplateBusy(true)
+                  setErr(null)
+                  const fd = new FormData()
+                  fd.append('file', templateFile)
+                  fd.append('sheet', 'Mesocycle 1 Basic Hypertrophy')
+                  const res = await fetch('/api/training/template/upload', { method: 'POST', body: fd })
+                  const json = await res.json().catch(() => null)
+                  if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Upload failed')
+                  setTemplateInfo({ bucket: json.bucket ?? null, path: json.path ?? null, sheet: json.sheet ?? null })
+                  setNotice('Template uploaded')
+                } catch (e) {
+                  setErr(e instanceof Error ? e.message : String(e))
+                } finally {
+                  setTemplateBusy(false)
+                }
+              }}
+            >
+              {templateBusy ? 'Uploading…' : 'Upload template'}
+            </button>
+
+            {templateInfo?.path ? (
+              <span className="text-xs text-slate-400">Current: {templateInfo.sheet ?? '—'}</span>
+            ) : (
+              <span className="text-xs text-slate-500">No template uploaded</span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
