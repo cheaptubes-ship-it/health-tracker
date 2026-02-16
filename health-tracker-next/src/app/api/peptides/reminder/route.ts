@@ -27,6 +27,25 @@ function tzTodayYmd(timeZone: string) {
   return y && m && d ? `${y}-${m}-${d}` : new Date().toISOString().slice(0, 10)
 }
 
+function tzNowHm(timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date())
+  const hh = parts.find((p) => p.type === 'hour')?.value
+  const mm = parts.find((p) => p.type === 'minute')?.value
+  const h = hh != null ? Number(hh) : NaN
+  const m = mm != null ? Number(mm) : NaN
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null
+}
+
+function inWindow(min: number | null, startMin: number, endMin: number) {
+  if (min == null) return false
+  return min >= startMin && min <= endMin
+}
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
@@ -59,6 +78,14 @@ export async function GET(req: Request) {
     const timeZone = settings?.timezone ?? 'America/New_York'
     const dow = tzDow(timeZone)
     const entry_date = tzTodayYmd(timeZone)
+
+    // Default reminder windows (local time)
+    const nowMin = tzNowHm(timeZone)
+    const amWindow = { start: 6 * 60, end: 8 * 60 }
+    const pmWindow = { start: 18 * 60, end: 20 * 60 }
+    const inReminderWindow = timing === 'am'
+      ? inWindow(nowMin, amWindow.start, amWindow.end)
+      : inWindow(nowMin, pmWindow.start, pmWindow.end)
 
     // Merge bedtime into PM
     const timingList = timing === 'pm' ? ['pm', 'bedtime'] : ['am']
@@ -110,13 +137,16 @@ export async function GET(req: Request) {
       ? `${timing.toUpperCase()} peptides due (${entry_date}):\n` + lines.map((x) => `- ${x}`).join('\n')
       : `No ${timing.toUpperCase()} peptides due (${entry_date}).`
 
+    const windowNote = timing === 'am' ? 'AM window 6–8am' : 'PM window 6–8pm'
+    const messageWithWindow = inReminderWindow ? message : `${message}\n\n(Not in ${windowNote}.)`
+
     // For iOS Shortcuts notifications, plain text is handy.
     const format = String(url.searchParams.get('format') ?? '').trim()
     if (format === 'text') {
-      return new Response(message, { headers: { 'content-type': 'text/plain; charset=utf-8' } })
+      return new Response(messageWithWindow, { headers: { 'content-type': 'text/plain; charset=utf-8' } })
     }
 
-    return NextResponse.json({ ok: true, timeZone, entry_date, dow, timing, items, message })
+    return NextResponse.json({ ok: true, timeZone, entry_date, dow, timing, items, message: messageWithWindow, inReminderWindow })
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : String(e) },
