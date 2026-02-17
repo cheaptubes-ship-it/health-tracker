@@ -89,11 +89,10 @@ export function WeightClient({
 
         <div className="grid gap-2">
           <div className="text-xs text-slate-400">Quick adjust</div>
-          <div className="flex flex-wrap gap-2">
-            {deltas
-              .slice()
-              .reverse()
-              .map((d) => (
+
+          <div className="grid gap-2">
+            <div className="flex flex-wrap gap-2">
+              {deltas.map((d) => (
                 <button
                   key={`minus-${d}`}
                   type="button"
@@ -104,17 +103,21 @@ export function WeightClient({
                   -{d}
                 </button>
               ))}
-            {deltas.map((d) => (
-              <button
-                key={`plus-${d}`}
-                type="button"
-                disabled={isPending}
-                onClick={() => applyDelta(d)}
-                className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-1.5 text-sm text-slate-100 hover:bg-slate-900 disabled:opacity-50"
-              >
-                +{d}
-              </button>
-            ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {deltas.map((d) => (
+                <button
+                  key={`plus-${d}`}
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => applyDelta(d)}
+                  className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-1.5 text-sm text-slate-100 hover:bg-slate-900 disabled:opacity-50"
+                >
+                  +{d}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </form>
