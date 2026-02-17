@@ -449,21 +449,43 @@ export default async function DashboardPage({
     )
   }
 
-  const peptideNames = Array.from(
-    new Set((peptides30.data ?? []).map((r) => String(r.name ?? '').trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b))
+  // Normalize peptide names so the same peptide doesn't appear multiple times due to casing/punctuation.
+  // e.g. "BPC-157" vs "bpc157" should be one series.
+  function isAllLower(s: string) {
+    return s === s.toLowerCase()
+  }
 
-  const peptideSeries = peptideNames.map((name, idx) => {
+  const keyToLabel = new Map<string, string>()
+  for (const r of peptides30.data ?? []) {
+    const raw = String(r.name ?? '').trim()
+    if (!raw) continue
+    const k = peptideKey(raw)
+    const prev = keyToLabel.get(k)
+    if (!prev) {
+      keyToLabel.set(k, raw)
+    } else {
+      // Prefer a label with some capitalization/punctuation (looks nicer in legend).
+      if (isAllLower(prev) && !isAllLower(raw)) keyToLabel.set(k, raw)
+    }
+  }
+
+  const peptideKeys = Array.from(keyToLabel.keys()).sort((a, b) => {
+    const la = keyToLabel.get(a) ?? a
+    const lb = keyToLabel.get(b) ?? b
+    return la.localeCompare(lb)
+  })
+
+  const peptideSeries = peptideKeys.map((key, idx) => {
     const palette = ['#a78bfa', '#22c55e', '#f97316', '#38bdf8', '#f43f5e', '#fbbf24']
-    return { key: peptideKey(name), label: name, color: palette[idx % palette.length] }
+    return { key, label: keyToLabel.get(key) ?? key, color: palette[idx % palette.length] }
   })
 
   const peptideByDay = new Map<string, Record<string, number>>()
   for (const r of peptides30.data ?? []) {
     const day = r.entry_date
-    const name = String(r.name ?? '').trim()
-    if (!name) continue
-    const key = peptideKey(name)
+    const raw = String(r.name ?? '').trim()
+    if (!raw) continue
+    const key = peptideKey(raw)
     const cur = peptideByDay.get(day) ?? {}
     cur[key] = (cur[key] ?? 0) + Number(r.actual_dose_mcg ?? 0)
     peptideByDay.set(day, cur)
