@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export function SettingsClient({
   initial,
@@ -37,6 +37,11 @@ export function SettingsClient({
   const [tzError, setTzError] = useState<string | null>(null)
   const [tzOk, setTzOk] = useState<string | null>(null)
   const [timezone, setTimezone] = useState(timezoneInitial ?? '')
+
+  const [origin, setOrigin] = useState<string>('')
+  useEffect(() => {
+    setOrigin(window.location.origin)
+  }, [])
 
   const [hydrationBusy, setHydrationBusy] = useState(false)
   const [hydrationError, setHydrationError] = useState<string | null>(null)
@@ -176,7 +181,7 @@ export function SettingsClient({
                 <div className="text-xs text-slate-400">AM (text)</div>
                 <div className="break-all font-mono text-xs text-slate-100">
                   {shortcutsToken
-                    ? `/api/peptides/reminder?token=${shortcutsToken}&timing=am&format=text`
+                    ? `${origin || ''}/api/peptides/reminder?token=${shortcutsToken}&timing=am&format=text`
                     : '—'}
                 </div>
               </div>
@@ -184,13 +189,18 @@ export function SettingsClient({
                 <div className="text-xs text-slate-400">PM (text) — includes bedtime</div>
                 <div className="break-all font-mono text-xs text-slate-100">
                   {shortcutsToken
-                    ? `/api/peptides/reminder?token=${shortcutsToken}&timing=pm&format=text`
+                    ? `${origin || ''}/api/peptides/reminder?token=${shortcutsToken}&timing=pm&format=text`
                     : '—'}
                 </div>
               </div>
             </div>
             <div className="mt-2 text-xs text-slate-400">
-              Tip: prepend your site URL in Shortcuts, e.g. <span className="font-mono">https://health-tracker-next.vercel.app</span>.
+              Tip: use the same domain you’re viewing this page on.
+              {origin ? (
+                <>
+                  {' '}Current: <span className="font-mono">{origin}</span>
+                </>
+              ) : null}
             </div>
           </div>
 
@@ -248,7 +258,7 @@ export function SettingsClient({
               2
             )}</pre>
             <div className="mt-2 text-xs text-slate-400">
-              POST to <span className="font-mono">/api/shortcuts/steps</span>
+              POST to <span className="font-mono">{origin || ''}/api/shortcuts/steps</span>
             </div>
           </div>
 
@@ -271,7 +281,7 @@ export function SettingsClient({
               2
             )}</pre>
             <div className="mt-2 text-xs text-slate-400">
-              POST to <span className="font-mono">/api/shortcuts/cardio</span>
+              POST to <span className="font-mono">{origin || ''}/api/shortcuts/cardio</span>
             </div>
           </div>
 
