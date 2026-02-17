@@ -116,6 +116,9 @@ export default async function DashboardPage({
     supabase
       .from('weight_entries')
       .select('weight_lbs, entry_date')
+      // Use the most recent weight on or before the selected date.
+      // This keeps backfilled days from prefilling with a future weight.
+      .lte('entry_date', selectedDate)
       .order('entry_date', { ascending: false })
       .limit(1),
     supabase
