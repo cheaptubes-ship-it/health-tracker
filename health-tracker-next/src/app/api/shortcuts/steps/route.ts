@@ -73,7 +73,16 @@ export async function POST(req: Request) {
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
 
-    return NextResponse.json({ ok: true })
+    // Helpful debug info for Shortcuts / Quick Look.
+    const { data: saved } = await supabase
+      .from('steps_entries')
+      .select('entry_date, steps, updated_at, source')
+      .eq('user_id', tok.user_id)
+      .eq('entry_date', entry_date)
+      .eq('source', 'shortcuts')
+      .maybeSingle()
+
+    return NextResponse.json({ ok: true, saved })
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : String(e) },
