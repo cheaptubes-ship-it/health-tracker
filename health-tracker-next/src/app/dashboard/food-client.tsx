@@ -21,19 +21,32 @@ export function FoodClient({
 }) {
   const router = useRouter()
   const [estimate, setEstimate] = useState<Estimate | null>(null)
+  const [aiOilTbsp, setAiOilTbsp] = useState<0 | 1 | 2 | 3>(0)
   const [addBusy, setAddBusy] = useState(false)
 
-  const defaults = useMemo(() => {
+  const adjustedEstimate = useMemo(() => {
     if (!estimate) return null
+    const oilTbsp = aiOilTbsp
+    const oilCal = oilTbsp * 120
+    const oilFat = oilTbsp * 14
     return {
-      name: estimate.name,
-      calories: String(Math.round(estimate.calories)),
-      protein_g: String(Number(estimate.protein_g ?? 0)),
-      carbs_g: String(Number(estimate.carbs_g ?? 0)),
-      fat_g: String(Number(estimate.fat_g ?? 0)),
+      ...estimate,
+      calories: Number(estimate.calories ?? 0) + oilCal,
+      fat_g: Number(estimate.fat_g ?? 0) + oilFat,
+    }
+  }, [estimate, aiOilTbsp])
+
+  const defaults = useMemo(() => {
+    if (!adjustedEstimate) return null
+    return {
+      name: adjustedEstimate.name,
+      calories: String(Math.round(adjustedEstimate.calories)),
+      protein_g: String(Number(adjustedEstimate.protein_g ?? 0)),
+      carbs_g: String(Number(adjustedEstimate.carbs_g ?? 0)),
+      fat_g: String(Number(adjustedEstimate.fat_g ?? 0)),
       source: 'ai_photo',
     }
-  }, [estimate])
+  }, [adjustedEstimate])
 
   const [name, setName] = useState('')
   const [calories, setCalories] = useState('')
@@ -189,6 +202,11 @@ export function FoodClient({
     setCarbs(defaults.carbs_g)
     setFat(defaults.fat_g)
     setSource('ai_photo')
+
+    // Lightly help the common failure mode (hidden oil). Don't clobber existing notes.
+    if (!note.trim() && aiOilTbsp > 0) {
+      setNote(`Includes ~${aiOilTbsp}${aiOilTbsp === 3 ? '+' : ''} Tbsp oil/dressing`)
+    }
   }
 
   return (
@@ -310,21 +328,48 @@ export function FoodClient({
         ) : null}
       </div>
 
-      <FoodPhotoUploader onEstimate={setEstimate} />
+      <FoodPhotoUploader
+        onEstimate={(e) => {
+          setEstimate(e)
+          setAiOilTbsp(0)
+        }}
+      />
 
-      {estimate ? (
+      {estimate && adjustedEstimate ? (
         <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">AI estimate</div>
               <div className="text-sm text-slate-200">
-                <div className="font-medium">{estimate.name}</div>
+                <div className="font-medium">{adjustedEstimate.name}</div>
                 <div>
-                  {Math.round(estimate.calories)} cal • P {estimate.protein_g} / C{' '}
-                  {estimate.carbs_g} / F {estimate.fat_g}
+                  {Math.round(adjustedEstimate.calories)} cal • P {adjustedEstimate.protein_g} / C{' '}
+                  {adjustedEstimate.carbs_g} / F {adjustedEstimate.fat_g}
                 </div>
+
+                <div className="mt-2">
+                  <label className="grid gap-1 text-xs text-slate-300">
+                    Added oil/dressing (common photo underestimate)
+                    <select
+                      className="w-fit rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      value={aiOilTbsp}
+                      onChange={(e) => setAiOilTbsp(Number(e.target.value) as 0 | 1 | 2 | 3)}
+                    >
+                      <option value={0}>Unknown / none</option>
+                      <option value={1}>~1 Tbsp</option>
+                      <option value={2}>~2 Tbsp</option>
+                      <option value={3}>~2+ Tbsp</option>
+                    </select>
+                  </label>
+                  {aiOilTbsp > 0 ? (
+                    <div className="mt-1 text-xs text-slate-400">
+                      Adds ~{aiOilTbsp * 120} cal and ~{aiOilTbsp * 14}g fat.
+                    </div>
+                  ) : null}
+                </div>
+
                 {estimate.confidence != null ? (
-                  <div className="text-xs text-slate-400">
+                  <div className="mt-2 text-xs text-slate-400">
                     Confidence: {Math.round(estimate.confidence * 100)}%
                   </div>
                 ) : null}
