@@ -5,10 +5,22 @@ export const runtime = 'nodejs'
 
 function n(v: unknown) {
   if (v == null) return null
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
   const s = String(v).trim()
   if (!s) return null
-  const num = Number(s)
+  // Accept strings like "76 count" or "30 steps".
+  const m = s.match(/-?\d+(?:\.\d+)?/)
+  const num = m ? Number(m[0]) : Number(s)
   return Number.isFinite(num) ? num : null
+}
+
+function sumNums(v: unknown): number | null {
+  if (Array.isArray(v)) {
+    const nums = v.map((x) => n(x)).filter((x): x is number => x != null)
+    if (!nums.length) return null
+    return nums.reduce((a, b) => a + b, 0)
+  }
+  return null
 }
 
 export async function POST(req: Request) {
@@ -19,7 +31,11 @@ export async function POST(req: Request) {
     const token = String(body.token ?? '').trim()
     const entry_date_raw = String(body.entry_date ?? '').trim() // YYYY-MM-DD
     const entry_ts = String(body.entry_ts ?? '').trim() // ISO string from iPhone (preferred)
-    const steps = n(body.steps)
+    // steps can be:
+    // - a number
+    // - a string ("76 count")
+    // - an array of numbers/strings (we'll sum)
+    const steps = sumNums(body.steps) ?? n(body.steps)
 
     if (!token) return NextResponse.json({ ok: false, error: 'Missing token' }, { status: 400 })
     if (steps == null) return NextResponse.json({ ok: false, error: 'Missing steps' }, { status: 400 })
