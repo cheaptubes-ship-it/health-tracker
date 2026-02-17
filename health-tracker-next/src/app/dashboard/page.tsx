@@ -4,7 +4,6 @@ import {
   addFoodFromFavorite,
   addPeptide,
   addVitals,
-  addWeight,
   deleteFood,
   deleteFavorite,
 } from './server-actions'
@@ -15,6 +14,7 @@ import { PeptidesClient } from './peptides-client'
 import { PeptideScheduleClient } from './peptide-schedule-client'
 import { PeptideQuickLogClient } from './peptide-quick-log-client'
 import { VitalsList } from './vitals-list'
+import { WeightClient } from './weight-client'
 import { TrendsClient } from './trends-client'
 import { HydrationClient } from './hydration-client'
 import type { HydrationEntry } from './hydration-types'
@@ -881,24 +881,11 @@ export default async function DashboardPage({
               <VitalsList selectedDate={selectedDate} />
             </div>
           ) : tab === 'weight' ? (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Weight</h2>
-              <form action={addWeight} className="flex gap-2">
-                <input type="hidden" name="entry_date" value={selectedDate} />
-                <input
-                  name="weight_lbs"
-                  type="number"
-                  step="0.1"
-                  min={0}
-                  className="w-40 rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="e.g. 185.4"
-                  required
-                />
-                <button className="rounded bg-black px-3 py-2 text-sm text-white">
-                  Save
-                </button>
-              </form>
-            </div>
+            <WeightClient
+              key={`${selectedDate}:${totals.lastWeight ?? 'none'}`}
+              selectedDate={selectedDate}
+              lastWeight={totals.lastWeight != null ? Number(totals.lastWeight) : null}
+            />
           ) : tab === 'settings' ? (
             <SettingsClient
               shortcutsToken={shortcutsToken}
