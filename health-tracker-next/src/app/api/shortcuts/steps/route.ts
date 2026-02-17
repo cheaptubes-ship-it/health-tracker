@@ -23,6 +23,82 @@ function sumNums(v: unknown): number | null {
   return null
 }
 
+export async function GET(req: Request) {
+  try {
+    const url = new URL(req.url)
+    const token = String(url.searchParams.get('token') ?? '').trim()
+    const entry_date = String(url.searchParams.get('entry_date') ?? '').trim()
+    const steps = n(url.searchParams.get('steps'))
+
+    if (!token) return NextResponse.json({ ok: false, error: 'Missing token' }, { status: 400 })
+    if (steps == null) return NextResponse.json({ ok: false, error: 'Missing steps' }, { status: 400 })
+
+    const supabase = createSupabaseAdminClient()
+
+    const { data: tok, error: tokErr } = await supabase
+      .from('shortcuts_tokens')
+      .select('user_id')
+      .eq('token', token)
+      .maybeSingle()
+
+    if (tokErr) return NextResponse.json({ ok: false, error: tokErr.message }, { status: 400 })
+    if (!tok?.user_id) return NextResponse.json({ ok: false, error: 'Invalid token' }, { status: 401 })
+
+    // If entry_date not provided, default to today in NY.
+    function todayYmdNY() {
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(new Date())
+      const y = parts.find((p) => p.type === 'year')?.value
+      const m = parts.find((p) => p.type === 'month')?.value
+      const d = parts.find((p) => p.type === 'day')?.value
+      if (y && m && d) return `${y}-${m}-${d}`
+      const now = new Date()
+      const yy = now.getFullYear()
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const dd = String(now.getDate()).padStart(2, '0')
+      return `${yy}-${mm}-${dd}`
+    }
+
+    const ymd = entry_date || todayYmdNY()
+
+    const payload = {
+      user_id: tok.user_id,
+      entry_date: ymd,
+      steps: Math.round(Number(steps)),
+      distance_m: null,
+      active_kcal: null,
+      avg_hr: null,
+      source: 'shortcuts',
+      updated_at: new Date().toISOString(),
+    }
+
+    const { error } = await supabase
+      .from('steps_entries')
+      .upsert(payload, { onConflict: 'user_id,entry_date,source' })
+
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
+
+    const { data: saved } = await supabase
+      .from('steps_entries')
+      .select('entry_date, steps, updated_at, source')
+      .eq('user_id', tok.user_id)
+      .eq('entry_date', ymd)
+      .eq('source', 'shortcuts')
+      .maybeSingle()
+
+    return NextResponse.json({ ok: true, saved })
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : String(e) },
+      { status: 500 }
+    )
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null)
