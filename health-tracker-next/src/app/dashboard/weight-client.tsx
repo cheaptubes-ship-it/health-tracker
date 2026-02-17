@@ -20,7 +20,7 @@ export function WeightClient({
   const [weight, setWeight] = useState<string>(() => (base != null ? String(base) : ''))
   const [isPending, startTransition] = useTransition()
 
-  const deltas = [0.5, 1]
+  const deltas = [0.5, 1, 1.5, 2, 2.5, 3]
 
   function applyDelta(delta: number) {
     const cur = Number(String(weight).trim())
