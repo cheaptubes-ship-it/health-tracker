@@ -884,7 +884,7 @@ export default async function DashboardPage({
                 <button className="w-fit rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400">Add vitals</button>
               </form>
 
-              <VitalsList selectedDate={selectedDate} />
+              <VitalsList selectedDate={selectedDate} timeZone={timezone} />
             </div>
           ) : tab === 'weight' ? (
             <WeightClient

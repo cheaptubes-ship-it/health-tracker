@@ -1,7 +1,13 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { deleteVitals } from './server-actions'
 
-export async function VitalsList({ selectedDate }: { selectedDate: string }) {
+export async function VitalsList({
+  selectedDate,
+  timeZone,
+}: {
+  selectedDate: string
+  timeZone: string
+}) {
   const supabase = await createSupabaseServerClient()
   const { data: rows, error } = await supabase
     .from('vitals_entries')
@@ -29,7 +35,7 @@ export async function VitalsList({ selectedDate }: { selectedDate: string }) {
                   <div className="text-sm font-medium">
                     {e.systolic}/{e.diastolic}
                     <span className="ml-2 text-xs text-neutral-500">
-                      {new Date(e.created_at).toLocaleString()}
+                      {new Date(e.created_at).toLocaleString([], { timeZone })}
                     </span>
                   </div>
                   <div className="text-sm text-neutral-700">Pulse: {e.pulse ?? '—'}</div>
