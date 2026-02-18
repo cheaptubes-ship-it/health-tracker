@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { peptideKey } from './peptides-utils'
 
 type Item = {
@@ -15,6 +17,14 @@ type Item = {
   note: string | null
 }
 
+type Profile = {
+  normalized_name: string
+  display_name: string | null
+  vial_amount: number
+  vial_unit: 'mg' | 'mcg'
+  recon_volume_ml: number
+}
+
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function dowLabel(days: number[]) {
@@ -24,10 +34,34 @@ function dowLabel(days: number[]) {
 
 export function PeptideScheduleClient() {
   const [items, setItems] = useState<Item[]>([])
+  const [profilesByKey, setProfilesByKey] = useState<Record<string, Profile>>({})
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [debug, setDebug] = useState<any>(null)
+
+  const approxMcg = useCallback((it: Item): number | null => {
+    if (it.dose_value == null || !Number.isFinite(Number(it.dose_value))) return null
+    const dv = Number(it.dose_value)
+    const unit = String(it.dose_unit ?? '').trim()
+
+    if (unit === 'mcg') return dv
+    if (unit === 'mg') return dv * 1000
+
+    if (unit === 'u') {
+      const prof = profilesByKey[it.normalized_name]
+      if (!prof) return null
+      const vialAmount = Number(prof.vial_amount)
+      const reconMl = Number(prof.recon_volume_ml)
+      if (!Number.isFinite(vialAmount) || !Number.isFinite(reconMl) || reconMl <= 0) return null
+      const vialMcg = prof.vial_unit === 'mg' ? vialAmount * 1000 : vialAmount
+      const mcgPerMl = vialMcg / reconMl
+      const mlNeeded = dv / 100 // 100u per mL
+      return mcgPerMl * mlNeeded
+    }
+
+    return null
+  }, [profilesByKey])
 
   const weekView = useMemo(() => {
     // { timing: { dow: string[] } }
@@ -40,7 +74,9 @@ export function PeptideScheduleClient() {
     for (const it of items) {
       const labelName = it.display_name ?? it.normalized_name
       const dose = it.dose_value != null ? `${it.dose_value}${it.dose_unit}` : ''
-      const label = `${labelName}${dose ? ` (${dose})` : ''}${it.active ? '' : ' [paused]'}`
+      const mcg = approxMcg(it)
+      const mcgLabel = mcg != null ? ` ≈ ${Math.round(mcg)}mcg` : ''
+      const label = `${labelName}${dose ? ` (${dose}${mcgLabel})` : ''}${it.active ? '' : ' [paused]'}`
       const days = Array.isArray(it.days_of_week) ? it.days_of_week : []
       for (const d of days) {
         if (buckets[it.timing]?.[d]) buckets[it.timing][d].push(label)
@@ -48,7 +84,7 @@ export function PeptideScheduleClient() {
     }
 
     return buckets
-  }, [items])
+  }, [items, approxMcg])
 
   async function load() {
     setErr(null)
@@ -80,10 +116,26 @@ export function PeptideScheduleClient() {
         const res = await fetch('/api/peptides/profiles')
         const json = await res.json().catch(() => null)
         if (res.ok && json?.ok && Array.isArray(json.items)) {
-          const names = (json.items as any[])
+          const rows = json.items as any[]
+          const names = rows
             .map((x) => String(x?.display_name ?? '').trim())
             .filter(Boolean)
           setProfileNames(Array.from(new Set(names)).sort((a, b) => a.localeCompare(b)))
+
+          const byKey: Record<string, Profile> = {}
+          for (const r of rows) {
+            const k = String(r?.normalized_name ?? '').trim()
+            if (!k) continue
+            const vial_unit = String(r?.vial_unit ?? 'mg') as 'mg' | 'mcg'
+            byKey[k] = {
+              normalized_name: k,
+              display_name: r?.display_name ?? null,
+              vial_amount: Number(r?.vial_amount ?? 0),
+              vial_unit: vial_unit === 'mcg' ? 'mcg' : 'mg',
+              recon_volume_ml: Number(r?.recon_volume_ml ?? 0),
+            }
+          }
+          setProfilesByKey(byKey)
         }
       } catch {
         // ignore
@@ -402,6 +454,12 @@ export function PeptideScheduleClient() {
                     </div>
                     <div className="text-xs text-slate-300">
                       Dose: {it.dose_value ?? '—'} {it.dose_unit}
+                      {(() => {
+                        const mcg = approxMcg(it)
+                        return mcg != null ? (
+                          <span className="ml-2 text-slate-400">≈ {Math.round(mcg)} mcg</span>
+                        ) : null
+                      })()}
                       {it.note ? <span className="ml-2 text-slate-400">{it.note}</span> : null}
                     </div>
                   </div>
