@@ -12,7 +12,7 @@ import { SettingsClient } from './settings-client'
 import { PeptideList } from './peptide-list'
 import { PeptidesClient } from './peptides-client'
 import { PeptideScheduleClient } from './peptide-schedule-client'
-import { PeptideQuickLogClient } from './peptide-quick-log-client'
+import { PeptideQuickLogClient, type Item as PeptideScheduleItem, type TakenEntry as PeptideTakenEntry } from './peptide-quick-log-client'
 import { VitalsList } from './vitals-list'
 import { WeightClient } from './weight-client'
 import { TrendsClient } from './trends-client'
@@ -22,7 +22,7 @@ import { SummaryClient } from './summary-client'
 import type { SummaryRange, SummaryStats } from './summary-types'
 import { TrainingClient } from './training-client'
 import { ActivityClient } from './activity-client'
-import { SleepClient } from './sleep-client'
+import { SleepClient, type SleepEntry } from './sleep-client'
 import { FastingClient } from './fasting-client'
 
 function formatDate(d: Date) {
@@ -946,9 +946,10 @@ export default async function DashboardPage({
               stats={summaryStats}
               selectedDate={selectedDate}
               unitPref={(hydrationTargets?.unit_pref as 'oz' | 'ml') ?? 'oz'}
+              lastWeightAsOf={totals.lastWeight != null ? Number(totals.lastWeight) : null}
             />
           ) : tab === 'sleep' ? (
-            <SleepClient selectedDate={selectedDate} entries={(sleep ?? []) as any} />
+            <SleepClient selectedDate={selectedDate} timeZone={timezone} entries={(sleep ?? []) as SleepEntry[]} />
           ) : tab === 'trends' ? (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Trends (last 30 days)</h2>
@@ -963,8 +964,8 @@ export default async function DashboardPage({
               <PeptideQuickLogClient
                 selectedDate={selectedDate}
                 timeZone={timezone}
-                scheduleItems={(peptideSchedule ?? []) as any}
-                takenToday={(peptideTakenToday ?? []) as any}
+                scheduleItems={(peptideSchedule ?? []) as PeptideScheduleItem[]}
+                takenToday={(peptideTakenToday ?? []) as PeptideTakenEntry[]}
               />
 
               <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">

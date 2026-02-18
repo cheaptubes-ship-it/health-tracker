@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type SleepEntry = {
+export type SleepEntry = {
   id: string
   entry_date: string
   sleep_start_at: string | null
@@ -30,9 +30,11 @@ function fmtDuration(min: number) {
 
 export function SleepClient({
   selectedDate,
+  timeZone,
   entries,
 }: {
   selectedDate: string
+  timeZone: string
   entries: SleepEntry[]
 }) {
   const router = useRouter()
@@ -188,8 +190,8 @@ export function SleepClient({
                         ) : null}
                       </div>
                       <div className="mt-1 text-xs text-slate-400">
-                        {e.sleep_start_at ? new Date(e.sleep_start_at).toLocaleString() : '—'} →{' '}
-                        {e.sleep_end_at ? new Date(e.sleep_end_at).toLocaleString() : '—'}
+                        {e.sleep_start_at ? new Date(e.sleep_start_at).toLocaleString([], { timeZone }) : '—'} →{' '}
+                        {e.sleep_end_at ? new Date(e.sleep_end_at).toLocaleString([], { timeZone }) : '—'}
                       </div>
                       {e.note ? (
                         <div className="mt-1 whitespace-pre-wrap text-xs text-slate-300">{e.note}</div>

@@ -11,10 +11,12 @@ export function SummaryClient({
   stats,
   selectedDate,
   unitPref,
+  lastWeightAsOf,
 }: {
   stats: SummaryStats
   selectedDate: string
   unitPref: 'oz' | 'ml'
+  lastWeightAsOf: number | null
 }) {
   const ranges: Array<{ id: SummaryRange; label: string }> = [
     { id: 'day', label: 'Day' },
@@ -144,6 +146,12 @@ export function SummaryClient({
                 <div className="text-lg font-semibold">
                   Δ {stats.weight.delta != null ? `${stats.weight.delta > 0 ? '+' : ''}${stats.weight.delta.toFixed(1)} lb` : '—'}
                 </div>
+              </>
+            ) : lastWeightAsOf != null ? (
+              <>
+                <div className="text-xs text-slate-400">No weight logged in range.</div>
+                <div className="text-lg font-semibold">Last known: {lastWeightAsOf} lb</div>
+                <div className="text-xs text-slate-400">As of {selectedDate}</div>
               </>
             ) : (
               <div className="text-sm text-slate-300">No weight in range.</div>

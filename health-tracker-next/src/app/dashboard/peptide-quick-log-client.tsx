@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { peptideKey } from './peptides-utils'
 
-type Item = {
+export type Item = {
   id: string
   display_name: string | null
   normalized_name: string
@@ -25,7 +25,7 @@ function tzDowForYmd(timeZone: string, ymd: string) {
   return map[w] ?? d.getDay()
 }
 
-type TakenEntry = {
+export type TakenEntry = {
   id: string
   name: string
   timing: string | null
