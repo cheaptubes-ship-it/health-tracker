@@ -214,6 +214,31 @@ export function SleepClient({
                       >
                         Edit
                       </button>
+
+                      <button
+                        type="button"
+                        className="rounded-lg border border-slate-700 bg-slate-950/10 px-2 py-1 text-xs text-slate-200 hover:bg-slate-900"
+                        onClick={async () => {
+                          try {
+                            if (!confirm('Fix timezone for this sleep entry? (Repairs older mis-saved times)')) return
+                            setError(null)
+                            setNotice(null)
+                            const res = await fetch('/api/sleep/repair-timezone', {
+                              method: 'POST',
+                              headers: { 'content-type': 'application/json' },
+                              body: JSON.stringify({ id: e.id }),
+                            })
+                            const json = await res.json().catch(() => null)
+                            if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to repair')
+                            setNotice('Repaired timezone')
+                            router.refresh()
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : String(err))
+                          }
+                        }}
+                      >
+                        Fix TZ
+                      </button>
                       <button
                         type="button"
                         className="rounded-lg border border-slate-700 bg-slate-950/10 px-2 py-1 text-xs text-slate-200 hover:bg-slate-900"

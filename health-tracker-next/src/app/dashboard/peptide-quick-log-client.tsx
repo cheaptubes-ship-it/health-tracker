@@ -91,15 +91,30 @@ export function PeptideQuickLogClient({
     }
   }, [scheduleItems, takenToday, selectedDow, showAll])
 
+  function tzTodayYmd(tz: string) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date())
+    const y = parts.find((p) => p.type === 'year')?.value
+    const m = parts.find((p) => p.type === 'month')?.value
+    const d = parts.find((p) => p.type === 'day')?.value
+    return y && m && d ? `${y}-${m}-${d}` : new Date().toISOString().slice(0, 10)
+  }
+
   async function quickLog(schedule_id: string) {
     setErr(null)
     setNotice(null)
     setBusyId(schedule_id)
     try {
+      // Quick log is "taken now" so always log against TODAY in the configured timezone.
+      const entry_date = tzTodayYmd(timeZone)
       const res = await fetch('/api/peptides/quick-log', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ schedule_id, entry_date: selectedDate }),
+        body: JSON.stringify({ schedule_id, entry_date }),
       })
       const json = await res.json().catch(() => null)
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
