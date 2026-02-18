@@ -20,6 +20,7 @@ export async function POST() {
     const { count, error: cErr } = await supabase
       .from('peptide_schedules')
       .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
 
     if (cErr) return NextResponse.json({ ok: false, error: cErr.message }, { status: 400 })
 

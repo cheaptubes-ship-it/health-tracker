@@ -16,11 +16,13 @@ type Item = {
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function tzDow(timeZone: string) {
+function tzDowForYmd(timeZone: string, ymd: string) {
+  // Use noon local time to avoid DST edges.
+  const d = new Date(`${ymd}T12:00:00`)
   const fmt = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' })
-  const w = fmt.format(new Date())
+  const w = fmt.format(d)
   const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
-  return map[w] ?? new Date().getDay()
+  return map[w] ?? d.getDay()
 }
 
 type TakenEntry = {
@@ -48,7 +50,7 @@ export function PeptideQuickLogClient({
   const [lastLoggedEntryId, setLastLoggedEntryId] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
 
-  const todayDow = tzDow(timeZone)
+  const selectedDow = useMemo(() => tzDowForYmd(timeZone, selectedDate), [timeZone, selectedDate])
 
   const due = useMemo(() => {
     // IMPORTANT: key by (peptide name, timing).
@@ -65,7 +67,7 @@ export function PeptideQuickLogClient({
     )
 
     const active = scheduleItems.filter((s) => s.active)
-    const matchesDay = showAll ? active : active.filter((s) => (s.days_of_week ?? []).includes(todayDow))
+    const matchesDay = showAll ? active : active.filter((s) => (s.days_of_week ?? []).includes(selectedDow))
 
     // Hide items already logged today (by peptide name+timing)
     const notLogged = matchesDay.filter((s) => {
@@ -87,7 +89,7 @@ export function PeptideQuickLogClient({
       pm: pm.sort(sort),
       takenCount: takenKeys.size,
     }
-  }, [scheduleItems, takenToday, todayDow, showAll])
+  }, [scheduleItems, takenToday, selectedDow, showAll])
 
   async function quickLog(schedule_id: string) {
     setErr(null)
@@ -124,7 +126,7 @@ export function PeptideQuickLogClient({
         <div>
           <div className="text-sm font-medium">Quick log (taken now)</div>
           <div className="text-xs text-slate-400">
-            Today: {DOW[todayDow]} • AM window 6–8am • PM window 6–8pm
+            Date: {selectedDate} ({DOW[selectedDow]}) • AM window 6–8am • PM window 6–8pm
           </div>
         </div>
       </div>
