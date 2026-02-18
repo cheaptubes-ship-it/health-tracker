@@ -11,7 +11,7 @@ async function maybeConvertHeicToJpeg(file: File): Promise<File> {
   // Convert in-browser so iPhone photos “just work”.
   // heic2any returns a Blob (or Blob[]) depending on options.
   const mod = await import('heic2any')
-  const heic2any = (mod as any).default ?? mod
+  const heic2any = (mod as { default?: unknown }).default ?? mod
   const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 })
   const blob = Array.isArray(out) ? out[0] : out
   if (!(blob instanceof Blob)) return file
@@ -77,8 +77,12 @@ type Estimate = {
 
 export function FoodPhotoUploader({
   onEstimate,
+  portionMode,
+  onPortionMode,
 }: {
   onEstimate: (e: Estimate) => void
+  portionMode: 'standard' | 'conservative' | 'heavy'
+  onPortionMode: (m: 'standard' | 'conservative' | 'heavy') => void
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -92,6 +96,7 @@ export function FoodPhotoUploader({
       const prepared = await downscaleToJpeg(converted)
       const fd = new FormData()
       fd.append('image', prepared)
+      fd.append('portion_mode', portionMode)
       const res = await fetch('/api/food/estimate', { method: 'POST', body: fd })
       const json = await res.json().catch(() => null)
       if (!res.ok || !json?.ok) {
@@ -113,7 +118,7 @@ export function FoodPhotoUploader({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <label className="inline-flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm hover:bg-neutral-50">
           <input
             type="file"
@@ -127,9 +132,19 @@ export function FoodPhotoUploader({
           />
           {busy ? 'Estimating…' : 'Meal from photo'}
         </label>
-        <span className="text-xs text-neutral-500">
-          Uses AI. You’ll confirm/edit before saving.
-        </span>
+        <label className="inline-flex items-center gap-2 text-xs text-neutral-500">
+          Portions
+          <select
+            className="rounded border px-2 py-1 text-xs"
+            value={portionMode}
+            onChange={(e) => onPortionMode(e.target.value as 'standard' | 'conservative' | 'heavy')}
+          >
+            <option value="standard">Standard (deli)</option>
+            <option value="conservative">Conservative</option>
+            <option value="heavy">Heavy</option>
+          </select>
+        </label>
+        <span className="text-xs text-neutral-500">Uses AI. You’ll confirm/edit before saving.</span>
       </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>

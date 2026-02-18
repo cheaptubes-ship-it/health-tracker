@@ -22,6 +22,7 @@ export function FoodClient({
   const router = useRouter()
   const [estimate, setEstimate] = useState<Estimate | null>(null)
   const [aiOilTbsp, setAiOilTbsp] = useState<0 | 1 | 2 | 3>(0)
+  const [portionMode, setPortionMode] = useState<'standard' | 'conservative' | 'heavy'>('standard')
   const [addBusy, setAddBusy] = useState(false)
 
   const adjustedEstimate = useMemo(() => {
@@ -329,6 +330,8 @@ export function FoodClient({
       </div>
 
       <FoodPhotoUploader
+        portionMode={portionMode}
+        onPortionMode={setPortionMode}
         onEstimate={(e) => {
           setEstimate(e)
           setAiOilTbsp(0)

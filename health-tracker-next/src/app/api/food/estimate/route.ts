@@ -31,6 +31,7 @@ export async function POST(req: Request) {
 
   const form = await req.formData()
   const file = form.get('image')
+  const portion_mode = String(form.get('portion_mode') ?? 'standard').trim()
 
   if (!(file instanceof File)) {
     return NextResponse.json(
@@ -86,10 +87,17 @@ export async function POST(req: Request) {
   }
 
   // Vision prompt: estimate macros; allow user to edit later.
+  const portionNote =
+    portion_mode === 'heavy'
+      ? 'Portioning: assume HEAVY restaurant portions (extra cheese/oil/sauce unless clearly absent).'
+      : portion_mode === 'conservative'
+        ? 'Portioning: be conservative; avoid overcounting unless clearly large.'
+        : 'Portioning: assume STANDARD restaurant/deli portions unless there is clear evidence it is small/half/mini. Do not undercount.'
+
   const prompt =
     'You are a nutrition assistant. From the image, infer the food item(s) and estimate total macros for ONE serving shown. ' +
     'If the image contains packaging or a nutrition label, prioritize reading it. ' +
-    'Portioning: assume STANDARD restaurant/deli portions unless there is clear evidence it is small/half/mini. Do not undercount. ' +
+    portionNote + ' ' +
     'Identification: do not confidently claim a specific protein (turkey vs chicken salad) unless it is clearly visible; otherwise say it is unclear and lower confidence. ' +
     'Return ONLY a JSON object (no markdown) with keys: name, calories, protein_g, carbs_g, fat_g, confidence (0-1), notes. ' +
     'Use numbers for macros. Put assumptions (portion sizes, ingredients, oils/cheese amounts) and uncertainty in notes.'
