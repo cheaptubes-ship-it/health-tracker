@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { datetimeLocalToUtcIso } from '@/lib/datetime'
 
 export const runtime = 'nodejs'
 
@@ -21,6 +22,13 @@ export async function POST(req: Request) {
     const sleep_start_at = body.sleep_start_at ? String(body.sleep_start_at) : null
     const sleep_end_at = body.sleep_end_at ? String(body.sleep_end_at) : null
 
+    const { data: settings } = await supabase
+      .from('user_settings')
+      .select('timezone')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    const timeZone = settings?.timezone ?? 'America/New_York'
+
     const qualityRaw = body.quality
     const quality =
       qualityRaw == null || qualityRaw === ''
@@ -34,8 +42,8 @@ export async function POST(req: Request) {
     const { error } = await supabase.from('sleep_entries').insert({
       user_id: user.id,
       entry_date,
-      sleep_start_at: sleep_start_at ? new Date(sleep_start_at).toISOString() : null,
-      sleep_end_at: sleep_end_at ? new Date(sleep_end_at).toISOString() : null,
+      sleep_start_at: datetimeLocalToUtcIso(sleep_start_at, timeZone),
+      sleep_end_at: datetimeLocalToUtcIso(sleep_end_at, timeZone),
       quality,
       note,
       source: 'manual',
