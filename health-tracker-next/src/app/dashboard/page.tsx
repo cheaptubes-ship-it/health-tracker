@@ -551,6 +551,7 @@ export default async function DashboardPage({
         </div>
 
         <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+          <div className="sr-only">Build {process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'}</div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div>
               <div className="text-xs text-slate-400">Calories</div>
@@ -592,6 +593,9 @@ export default async function DashboardPage({
           </div>
 
           <div className="flex items-end gap-3">
+            <div className="hidden text-[10px] text-slate-500 sm:block">
+              {process.env.VERCEL_GIT_COMMIT_SHA ? `build ${String(process.env.VERCEL_GIT_COMMIT_SHA).slice(0, 7)}` : ''}
+            </div>
             <div>
               <div className="text-xs text-slate-400">Date</div>
               <form>
