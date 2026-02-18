@@ -46,6 +46,9 @@ function formatDateInTz(tz: string) {
   return y && m && d ? `${y}-${m}-${d}` : formatDate(new Date())
 }
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function DashboardPage({
   searchParams,
 }: {

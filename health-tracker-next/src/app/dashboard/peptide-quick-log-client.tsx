@@ -46,6 +46,7 @@ export function PeptideQuickLogClient({
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [lastLoggedEntryId, setLastLoggedEntryId] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
   const todayDow = tzDow(timeZone)
 
@@ -64,9 +65,9 @@ export function PeptideQuickLogClient({
     )
 
     const active = scheduleItems.filter((s) => s.active)
-    const matchesDay = active.filter((s) => (s.days_of_week ?? []).includes(todayDow))
+    const matchesDay = showAll ? active : active.filter((s) => (s.days_of_week ?? []).includes(todayDow))
 
-    // Hide items already logged today (by peptide name key)
+    // Hide items already logged today (by peptide name+timing)
     const notLogged = matchesDay.filter((s) => {
       const key = peptideKey(s.display_name ?? s.normalized_name)
       const t = String(s.timing ?? '').trim() || 'unknown'
@@ -86,7 +87,7 @@ export function PeptideQuickLogClient({
       pm: pm.sort(sort),
       takenCount: takenKeys.size,
     }
-  }, [scheduleItems, takenToday, todayDow])
+  }, [scheduleItems, takenToday, todayDow, showAll])
 
   async function quickLog(schedule_id: string) {
     setErr(null)
@@ -131,6 +132,17 @@ export function PeptideQuickLogClient({
       {err ? <p className="mt-2 text-sm text-red-400">{err}</p> : null}
       <div className="mt-2 flex flex-wrap items-center gap-3">
         {notice ? <p className="text-sm text-emerald-400">{notice}</p> : null}
+
+        <label className="flex items-center gap-2 text-xs text-slate-300">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-600 bg-slate-950/40"
+            checked={showAll}
+            onChange={(e) => setShowAll(e.target.checked)}
+          />
+          Show all (ignore schedule days)
+        </label>
+
         {lastLoggedEntryId ? (
           <button
             type="button"
