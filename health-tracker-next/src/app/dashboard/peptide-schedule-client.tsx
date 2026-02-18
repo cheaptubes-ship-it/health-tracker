@@ -452,15 +452,51 @@ export function PeptideScheduleClient() {
                     <div className="text-sm font-medium text-slate-100">
                       {it.display_name ?? it.normalized_name} • {it.timing.toUpperCase()} • {dowLabel(it.days_of_week ?? [])}
                     </div>
-                    <div className="text-xs text-slate-300">
-                      Dose: {it.dose_value ?? '—'} {it.dose_unit}
-                      {(() => {
-                        const mcg = approxMcg(it)
-                        return mcg != null ? (
-                          <span className="ml-2 text-slate-400">≈ {Math.round(mcg)} mcg</span>
-                        ) : null
-                      })()}
-                      {it.note ? <span className="ml-2 text-slate-400">{it.note}</span> : null}
+
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                      <span>
+                        Dose: {it.dose_value ?? '—'} {it.dose_unit}
+                        {(() => {
+                          const mcg = approxMcg(it)
+                          return mcg != null ? (
+                            <span className="ml-2 text-slate-400">≈ {Math.round(mcg)} mcg</span>
+                          ) : null
+                        })()}
+                      </span>
+
+                      {it.dose_unit === 'u' && it.dose_value != null ? (
+                        <div className="flex flex-wrap gap-1">
+                          {([-10, -5, -1, 1, 5, 10] as const).map((d) => (
+                            <button
+                              key={d}
+                              type="button"
+                              className="rounded border border-slate-700 bg-slate-950/20 px-2 py-0.5 text-[11px] text-slate-200 hover:bg-slate-900/40"
+                              onClick={async () => {
+                                try {
+                                  setErr(null)
+                                  setNotice(null)
+                                  const reason = window.prompt('Reason (optional):', '') ?? ''
+                                  const res = await fetch('/api/peptides/schedule/change-dose', {
+                                    method: 'POST',
+                                    headers: { 'content-type': 'application/json' },
+                                    body: JSON.stringify({ id: it.id, delta: d, reason }),
+                                  })
+                                  const json = await res.json().catch(() => null)
+                                  if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
+                                  setNotice(`Dose updated to ${json?.to_dose_value ?? '—'}u${json?.logged ? '' : ' (log skipped)'}`)
+                                  await load()
+                                } catch (e2) {
+                                  setErr(e2 instanceof Error ? e2.message : String(e2))
+                                }
+                              }}
+                            >
+                              {d > 0 ? `+${d}` : String(d)}u
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {it.note ? <span className="text-slate-400">{it.note}</span> : null}
                     </div>
                   </div>
 
