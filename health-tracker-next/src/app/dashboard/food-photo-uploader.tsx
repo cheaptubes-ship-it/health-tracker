@@ -11,7 +11,10 @@ async function maybeConvertHeicToJpeg(file: File): Promise<File> {
   // Convert in-browser so iPhone photos “just work”.
   // heic2any returns a Blob (or Blob[]) depending on options.
   const mod = await import('heic2any')
-  const heic2any = (mod as { default?: unknown }).default ?? mod
+  const heic2any = ((mod as unknown as { default?: unknown }).default ?? mod) as (
+    opts: { blob: Blob; toType: string; quality?: number }
+  ) => Promise<Blob | Blob[]>
+
   const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 })
   const blob = Array.isArray(out) ? out[0] : out
   if (!(blob instanceof Blob)) return file
