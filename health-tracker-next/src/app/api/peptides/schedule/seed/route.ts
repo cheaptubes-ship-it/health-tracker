@@ -67,7 +67,7 @@ export async function POST() {
         active: true,
       },
 
-      // NAD+: Mon/Wed/Fri, 5u, AM
+      // NAD+: weekdays (Mon–Fri), 5u, AM
       {
         user_id: user.id,
         normalized_name: peptideKey('NAD+'),
@@ -75,7 +75,7 @@ export async function POST() {
         dose_value: 5,
         dose_unit: 'u',
         timing: 'am',
-        days_of_week: [1, 3, 5],
+        days_of_week: WEEKDAYS,
         active: true,
       },
 
