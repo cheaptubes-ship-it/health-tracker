@@ -20,6 +20,10 @@ export type SummaryStats = {
 
   peptides_taken_mcg: number
 
+  steps: {
+    today: number | null
+  }
+
   sleep: {
     avg_duration_min: number | null
     quality_avg: number | null

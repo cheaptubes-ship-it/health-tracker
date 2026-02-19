@@ -236,7 +236,7 @@ export default async function DashboardPage({
 
   const summaryWindow = rangeStartEnd(selectedDate, summaryRange)
 
-  const [foodSum, vitalsSum, peptidesSum, weightSum, hydrationSum, sleepSum, fastingWin] = await Promise.all([
+  const [foodSum, vitalsSum, peptidesSum, weightSum, hydrationSum, sleepSum, fastingWin, stepsDay] = await Promise.all([
     supabase
       .from('food_entries')
       .select('calories, protein_g, carbs_g, fat_g')
@@ -276,6 +276,13 @@ export default async function DashboardPage({
       .select('fast_start_at, fast_end_at')
       .eq('entry_date', selectedDate)
       .maybeSingle(),
+    // Steps for the selected date (imported from Shortcuts)
+    supabase
+      .from('steps_entries')
+      .select('steps, entry_date, updated_at')
+      .eq('entry_date', selectedDate)
+      .order('updated_at', { ascending: false })
+      .limit(1),
   ])
 
   const vitalsRows = vitalsSum.data ?? []
@@ -355,6 +362,10 @@ export default async function DashboardPage({
     magnesium_mg: (hydrationSum.data ?? []).reduce((s, r) => s + Number(r.magnesium_mg ?? 0), 0),
 
     peptides_taken_mcg: (peptidesSum.data ?? []).reduce((s, r) => s + Number(r.actual_dose_mcg ?? 0), 0),
+
+    steps: {
+      today: stepsDay.data?.[0]?.steps != null ? Number(stepsDay.data?.[0]?.steps) : null,
+    },
 
     sleep: {
       avg_duration_min: sleepAvgMin,

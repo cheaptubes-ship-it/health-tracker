@@ -94,24 +94,15 @@ export function SummaryClient({
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
-          <div className="text-sm font-semibold">Sleep</div>
+          <div className="text-sm font-semibold">Steps</div>
           <div className="mt-2 text-sm text-slate-200">
-            {stats.sleep.nights ? (
+            {stats.steps.today != null ? (
               <>
-                <div className="text-xs text-slate-400">Last night</div>
-                <div className="text-lg font-semibold">
-                  {stats.sleep.last_duration_min != null
-                    ? `${Math.floor(stats.sleep.last_duration_min / 60)}h ${stats.sleep.last_duration_min % 60}m`
-                    : '—'}
-                </div>
-                <div className="text-xs text-slate-400">
-                  Quality {stats.sleep.last_quality ?? '—'} • Avg {stats.sleep.avg_duration_min != null
-                    ? `${Math.floor(stats.sleep.avg_duration_min / 60)}h ${stats.sleep.avg_duration_min % 60}m`
-                    : '—'} • nights={stats.sleep.nights}
-                </div>
+                <div className="text-xs text-slate-400">Today</div>
+                <div className="text-lg font-semibold">{Math.round(stats.steps.today).toLocaleString()}</div>
               </>
             ) : (
-              <div className="text-sm text-slate-300">No sleep in range.</div>
+              <div className="text-sm text-slate-300">No steps yet today.</div>
             )}
           </div>
         </div>
@@ -167,6 +158,29 @@ export function SummaryClient({
               : `${Math.round(stats.peptides_taken_mcg)} mcg`}
           </div>
           <div className="mt-1 text-xs text-slate-400">Total in range</div>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+          <div className="text-sm font-semibold">Sleep</div>
+          <div className="mt-2 text-sm text-slate-200">
+            {stats.sleep.nights ? (
+              <>
+                <div className="text-xs text-slate-400">Last night</div>
+                <div className="text-lg font-semibold">
+                  {stats.sleep.last_duration_min != null
+                    ? `${Math.floor(stats.sleep.last_duration_min / 60)}h ${stats.sleep.last_duration_min % 60}m`
+                    : '—'}
+                </div>
+                <div className="text-xs text-slate-400">
+                  Quality {stats.sleep.last_quality ?? '—'} • Avg {stats.sleep.avg_duration_min != null
+                    ? `${Math.floor(stats.sleep.avg_duration_min / 60)}h ${stats.sleep.avg_duration_min % 60}m`
+                    : '—'} • nights={stats.sleep.nights}
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-slate-300">No sleep in range.</div>
+            )}
+          </div>
         </div>
       </div>
     </div>
