@@ -82,30 +82,37 @@ export function FoodPhotoUploader({
   onEstimate,
   portionMode,
   onPortionMode,
+  onReestimate,
 }: {
-  onEstimate: (e: Estimate) => void
+  onEstimate: (e: Estimate, preparedFile?: File) => void
   portionMode: 'standard' | 'conservative' | 'heavy'
   onPortionMode: (m: 'standard' | 'conservative' | 'heavy') => void
+  onReestimate?: (portionMode: 'standard' | 'conservative' | 'heavy') => void
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  async function estimateFromFile(file: File, portion_mode: 'standard' | 'conservative' | 'heavy') {
+    const converted = await maybeConvertHeicToJpeg(file)
+    const prepared = await downscaleToJpeg(converted)
+    const fd = new FormData()
+    fd.append('image', prepared)
+    fd.append('portion_mode', portion_mode)
+    const res = await fetch('/api/food/estimate', { method: 'POST', body: fd })
+    const json = await res.json().catch(() => null)
+    if (!res.ok || !json?.ok) {
+      throw new Error(json?.message ?? json?.error ?? `Failed to estimate macros (HTTP ${res.status})`)
+    }
+    onEstimate(json.estimate, prepared)
+    return prepared
+  }
 
   async function onPick(file: File) {
     setBusy(true)
     setError(null)
 
     try {
-      const converted = await maybeConvertHeicToJpeg(file)
-      const prepared = await downscaleToJpeg(converted)
-      const fd = new FormData()
-      fd.append('image', prepared)
-      fd.append('portion_mode', portionMode)
-      const res = await fetch('/api/food/estimate', { method: 'POST', body: fd })
-      const json = await res.json().catch(() => null)
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.message ?? json?.error ?? `Failed to estimate macros (HTTP ${res.status})`)
-      }
-      onEstimate(json.estimate)
+      await estimateFromFile(file, portionMode)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       // Safari sometimes throws this for fetch failures / unsupported file handling.
@@ -147,6 +154,15 @@ export function FoodPhotoUploader({
             <option value="heavy">Heavy</option>
           </select>
         </label>
+        {onReestimate ? (
+          <button
+            type="button"
+            className="rounded border px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-50"
+            onClick={() => onReestimate(portionMode)}
+          >
+            Refresh
+          </button>
+        ) : null}
         <span className="text-xs text-neutral-500">Uses AI. You’ll confirm/edit before saving.</span>
       </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

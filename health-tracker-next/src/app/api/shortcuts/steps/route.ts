@@ -27,7 +27,6 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
     const token = String(url.searchParams.get('token') ?? '').trim()
-    const entry_date = String(url.searchParams.get('entry_date') ?? '').trim()
     const steps = n(url.searchParams.get('steps'))
 
     if (!token) return NextResponse.json({ ok: false, error: 'Missing token' }, { status: 400 })
@@ -44,7 +43,7 @@ export async function GET(req: Request) {
     if (tokErr) return NextResponse.json({ ok: false, error: tokErr.message }, { status: 400 })
     if (!tok?.user_id) return NextResponse.json({ ok: false, error: 'Invalid token' }, { status: 401 })
 
-    // If entry_date not provided, default to today in NY.
+    // Today-only import: always write to today's date in NY.
     function todayYmdNY() {
       const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'America/New_York',
@@ -63,7 +62,7 @@ export async function GET(req: Request) {
       return `${yy}-${mm}-${dd}`
     }
 
-    const ymd = entry_date || todayYmdNY()
+    const ymd = todayYmdNY()
 
     const payload = {
       user_id: tok.user_id,

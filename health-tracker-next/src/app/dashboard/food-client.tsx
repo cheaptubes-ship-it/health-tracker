@@ -23,6 +23,27 @@ export function FoodClient({
   const [estimate, setEstimate] = useState<Estimate | null>(null)
   const [aiOilTbsp, setAiOilTbsp] = useState<0 | 1 | 2 | 3>(0)
   const [portionMode, setPortionMode] = useState<'standard' | 'conservative' | 'heavy'>('standard')
+  const [lastPhoto, setLastPhoto] = useState<File | null>(null)
+
+  async function reestimate(m: 'standard' | 'conservative' | 'heavy') {
+    if (!lastPhoto) {
+      setNotice('No recent photo to re-estimate.')
+      return
+    }
+    setSearchError(null)
+    try {
+      const fd = new FormData()
+      fd.append('image', lastPhoto)
+      fd.append('portion_mode', m)
+      const res = await fetch('/api/food/estimate', { method: 'POST', body: fd })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? json?.error ?? 'Failed to re-estimate')
+      setEstimate(json.estimate)
+      setAiOilTbsp(0)
+    } catch (e) {
+      setSearchError(e instanceof Error ? e.message : String(e))
+    }
+  }
   const [addBusy, setAddBusy] = useState(false)
 
   const adjustedEstimate = useMemo(() => {
@@ -332,9 +353,13 @@ export function FoodClient({
       <FoodPhotoUploader
         portionMode={portionMode}
         onPortionMode={setPortionMode}
-        onEstimate={(e) => {
+        onEstimate={(e, preparedFile) => {
           setEstimate(e)
           setAiOilTbsp(0)
+          if (preparedFile) setLastPhoto(preparedFile)
+        }}
+        onReestimate={(m) => {
+          void reestimate(m)
         }}
       />
 
