@@ -152,6 +152,17 @@ export async function POST(req: Request) {
       // ignore
     }
 
+    // Log usage (best-effort)
+    try {
+      await supabase.from('ai_usage_events').insert({
+        user_id: user.id,
+        kind: 'weight_insight',
+        model: process.env.AI_INSIGHT_MODEL || 'gpt-4o-mini',
+      })
+    } catch {
+      // ignore
+    }
+
     return NextResponse.json({ ok: true, timeZone, date: selectedDate, insight: parsed })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 })

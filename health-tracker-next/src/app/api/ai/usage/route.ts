@@ -22,37 +22,37 @@ export async function GET() {
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
 
-    const today = new Date().toISOString().slice(0, 10)
-    const start7 = addDaysYmd(today, -6)
-    const start30 = addDaysYmd(today, -29)
+    const end = new Date()
+    const endYmd = end.toISOString().slice(0, 10)
+    const start7 = addDaysYmd(endYmd, -6)
+    const start30 = addDaysYmd(endYmd, -29)
 
-    const [rows7, rows30] = await Promise.all([
-      supabase
-        .from('ai_usage_events')
-        .select('kind, model, created_at')
-        .eq('user_id', user.id)
-        .gte('created_at', start7 + 'T00:00:00Z'),
-      supabase
-        .from('ai_usage_events')
-        .select('kind, model, created_at')
-        .eq('user_id', user.id)
-        .gte('created_at', start30 + 'T00:00:00Z'),
-    ])
+    const { data, error } = await supabase
+      .from('ai_usage_events')
+      .select('kind, created_at')
+      .eq('user_id', user.id)
+      .gte('created_at', start30 + 'T00:00:00Z')
+      .lte('created_at', end.toISOString())
 
-    const byKind = (rows: any[] | null) => {
-      const m = new Map<string, number>()
-      for (const r of rows ?? []) {
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
+
+    const rows = (data ?? []) as any[]
+
+    function agg(fromYmd: string) {
+      const by_kind: Record<string, number> = {}
+      let total = 0
+      for (const r of rows) {
+        const created = String(r.created_at ?? '')
+        const ymd = created.slice(0, 10)
+        if (ymd < fromYmd) continue
         const k = String(r.kind ?? 'unknown')
-        m.set(k, (m.get(k) ?? 0) + 1)
+        by_kind[k] = (by_kind[k] ?? 0) + 1
+        total += 1
       }
-      return Object.fromEntries(Array.from(m.entries()).sort((a, b) => b[1] - a[1]))
+      return { from: fromYmd, to: endYmd, total, by_kind }
     }
 
-    return NextResponse.json({
-      ok: true,
-      last7: { total: (rows7.data ?? []).length, by_kind: byKind(rows7.data as any) },
-      last30: { total: (rows30.data ?? []).length, by_kind: byKind(rows30.data as any) },
-    })
+    return NextResponse.json({ ok: true, last7: agg(start7), last30: agg(start30) })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 })
   }

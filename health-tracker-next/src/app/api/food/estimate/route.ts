@@ -177,5 +177,22 @@ export async function POST(req: Request) {
     // ignore
   }
 
+  // Log usage (best-effort)
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('ai_usage_events').insert({
+        user_id: user.id,
+        kind: 'food_photo_estimate',
+        model: process.env.AI_FOOD_PHOTO_MODEL || 'gpt-4.1-mini',
+      })
+    }
+  } catch {
+    // ignore
+  }
+
   return NextResponse.json({ ok: true, estimate: result.data })
 }
