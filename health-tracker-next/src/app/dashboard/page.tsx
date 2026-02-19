@@ -87,6 +87,12 @@ export default async function DashboardPage({
 
   const selectedDate = hasExplicitDate ? date : formatDateInTz(timezone)
 
+  function addDaysYmd(ymd: string, delta: number) {
+    const d = new Date(ymd + 'T00:00:00')
+    d.setDate(d.getDate() + delta)
+    return formatDate(d)
+  }
+
   const [
     { data: food },
     { data: vitals },
@@ -100,6 +106,7 @@ export default async function DashboardPage({
     { data: peptideTakenToday },
     { data: stepsLatest },
     { data: cardioLatest },
+    { data: foodPrevDay },
   ] = await Promise.all([
     supabase
       .from('food_entries')
@@ -160,6 +167,11 @@ export default async function DashboardPage({
       .select('kind, started_at, ended_at, updated_at')
       .order('updated_at', { ascending: false })
       .limit(1),
+    // Previous day macros (quick reference)
+    supabase
+      .from('food_entries')
+      .select('calories, protein_g, carbs_g, fat_g')
+      .eq('entry_date', addDaysYmd(selectedDate, -1)),
   ])
 
   const shortcutsToken = shortcutsTokenRow?.token ?? null
@@ -222,9 +234,7 @@ export default async function DashboardPage({
   }
 
   function addDays(ymd: string, delta: number) {
-    const d = new Date(ymd + 'T00:00:00')
-    d.setDate(d.getDate() + delta)
-    return formatDate(d)
+    return addDaysYmd(ymd, delta)
   }
 
   function rangeStartEnd(endYmd: string, r: SummaryRange) {
@@ -783,7 +793,19 @@ export default async function DashboardPage({
                 </div>
               ) : null}
 
-              <FoodClient selectedDate={selectedDate} />
+              <FoodClient
+                selectedDate={selectedDate}
+                prevDay={
+                  foodPrevDay
+                    ? {
+                        calories: (foodPrevDay ?? []).reduce((s, r) => s + Number(r.calories ?? 0), 0),
+                        protein: (foodPrevDay ?? []).reduce((s, r) => s + Number(r.protein_g ?? 0), 0),
+                        carbs: (foodPrevDay ?? []).reduce((s, r) => s + Number(r.carbs_g ?? 0), 0),
+                        fat: (foodPrevDay ?? []).reduce((s, r) => s + Number(r.fat_g ?? 0), 0),
+                      }
+                    : null
+                }
+              />
 
 
               <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">

@@ -16,8 +16,10 @@ type Estimate = {
 
 export function FoodClient({
   selectedDate,
+  prevDay,
 }: {
   selectedDate: string
+  prevDay: { calories: number; protein: number; carbs: number; fat: number } | null
 }) {
   const router = useRouter()
   const [estimate, setEstimate] = useState<Estimate | null>(null)
@@ -233,6 +235,11 @@ export function FoodClient({
 
   return (
     <div className="space-y-3">
+      {prevDay ? (
+        <div className="text-xs text-slate-400">
+          Yesterday: {prevDay.calories} cal • P {Math.round(prevDay.protein)} / C {Math.round(prevDay.carbs)} / F {Math.round(prevDay.fat)}
+        </div>
+      ) : null}
       <div className="grid gap-4 rounded-xl border border-slate-800 bg-slate-950/20 p-4">
         <p className="text-xs text-slate-400">
           Note: OpenFoodFacts values can be per-100g. If a serving is shown, adjust grams in the form.
