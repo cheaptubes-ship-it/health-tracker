@@ -43,5 +43,6 @@ export type SummaryStats = {
     first: number | null
     last: number | null
     delta: number | null
+    prev: number | null
   }
 }

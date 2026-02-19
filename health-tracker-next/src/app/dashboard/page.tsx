@@ -236,7 +236,7 @@ export default async function DashboardPage({
 
   const summaryWindow = rangeStartEnd(selectedDate, summaryRange)
 
-  const [foodSum, vitalsSum, peptidesSum, weightSum, hydrationSum, sleepSum, fastingWin, stepsDay] = await Promise.all([
+  const [foodSum, vitalsSum, peptidesSum, weightSum, hydrationSum, sleepSum, fastingWin, stepsDay, prevWeightRow] = await Promise.all([
     supabase
       .from('food_entries')
       .select('calories, protein_g, carbs_g, fat_g')
@@ -283,6 +283,13 @@ export default async function DashboardPage({
       .eq('entry_date', selectedDate)
       .order('updated_at', { ascending: false })
       .limit(1),
+    // Previous weight before selected date (for day delta)
+    supabase
+      .from('weight_entries')
+      .select('weight_lbs, entry_date')
+      .lt('entry_date', selectedDate)
+      .order('entry_date', { ascending: false })
+      .limit(1),
   ])
 
   const vitalsRows = vitalsSum.data ?? []
@@ -300,8 +307,18 @@ export default async function DashboardPage({
   const weightRows = weightSum.data ?? []
   const weightFirst = weightRows.length ? Number(weightRows[0].weight_lbs) : null
   const weightLast = weightRows.length ? Number(weightRows[weightRows.length - 1].weight_lbs) : null
+
+  const prevWeight = prevWeightRow?.data?.[0]?.weight_lbs != null ? Number(prevWeightRow.data[0].weight_lbs) : null
+
+  // For day range, delta is more useful as change vs previous weight entry.
   const weightDelta =
-    weightFirst != null && weightLast != null ? Number((weightLast - weightFirst).toFixed(1)) : null
+    summaryRange === 'day'
+      ? prevWeight != null && weightLast != null
+        ? Number((weightLast - prevWeight).toFixed(1))
+        : null
+      : weightFirst != null && weightLast != null
+        ? Number((weightLast - weightFirst).toFixed(1))
+        : null
 
   // Sleep summary
   const sleepRows = sleepSum.data ?? []
@@ -386,6 +403,7 @@ export default async function DashboardPage({
       first: weightFirst,
       last: weightLast,
       delta: weightDelta,
+      prev: prevWeight,
     },
   }
 

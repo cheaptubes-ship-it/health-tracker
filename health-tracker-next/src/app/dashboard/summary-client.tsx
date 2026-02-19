@@ -137,6 +137,11 @@ export function SummaryClient({
                 <div className="text-lg font-semibold">
                   Δ {stats.weight.delta != null ? `${stats.weight.delta > 0 ? '+' : ''}${stats.weight.delta.toFixed(1)} lb` : '—'}
                 </div>
+                {stats.range === 'day' ? (
+                  <div className="text-xs text-slate-400">
+                    vs prev: {stats.weight.prev != null ? `${stats.weight.prev} lb` : '—'}
+                  </div>
+                ) : null}
               </>
             ) : lastWeightAsOf != null ? (
               <>
