@@ -383,6 +383,15 @@ export default async function DashboardPage({
     carbs_g: (foodSum.data ?? []).reduce((s, r) => s + Number(r.carbs_g ?? 0), 0),
     fat_g: (foodSum.data ?? []).reduce((s, r) => s + Number(r.fat_g ?? 0), 0),
 
+    prev_day: foodPrevDay
+      ? {
+          calories: (foodPrevDay ?? []).reduce((s, r) => s + Number(r.calories ?? 0), 0),
+          protein_g: (foodPrevDay ?? []).reduce((s, r) => s + Number(r.protein_g ?? 0), 0),
+          carbs_g: (foodPrevDay ?? []).reduce((s, r) => s + Number(r.carbs_g ?? 0), 0),
+          fat_g: (foodPrevDay ?? []).reduce((s, r) => s + Number(r.fat_g ?? 0), 0),
+        }
+      : null,
+
     water_ml: (hydrationSum.data ?? []).reduce((s, r) => s + Number(r.water_ml ?? 0), 0),
     sodium_mg: (hydrationSum.data ?? []).reduce((s, r) => s + Number(r.sodium_mg ?? 0), 0),
     potassium_mg: (hydrationSum.data ?? []).reduce((s, r) => s + Number(r.potassium_mg ?? 0), 0),

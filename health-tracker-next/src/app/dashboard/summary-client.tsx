@@ -69,6 +69,11 @@ export function SummaryClient({
               <div className="text-sm text-slate-200">
                 P {Math.round(stats.protein_g)} / C {Math.round(stats.carbs_g)} / F {Math.round(stats.fat_g)}
               </div>
+              {stats.prev_day ? (
+                <div className="mt-1 text-xs text-slate-400">
+                  Yesterday: {Math.round(stats.prev_day.calories)} cal • P {Math.round(stats.prev_day.protein_g)} / C {Math.round(stats.prev_day.carbs_g)} / F {Math.round(stats.prev_day.fat_g)}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

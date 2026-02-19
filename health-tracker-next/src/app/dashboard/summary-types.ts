@@ -13,6 +13,13 @@ export type SummaryStats = {
   carbs_g: number
   fat_g: number
 
+  prev_day: {
+    calories: number
+    protein_g: number
+    carbs_g: number
+    fat_g: number
+  } | null
+
   water_ml: number
   sodium_mg: number
   potassium_mg: number
