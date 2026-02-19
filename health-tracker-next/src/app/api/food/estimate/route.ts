@@ -1,6 +1,7 @@
 import OpenAI, { toFile } from 'openai'
 import { NextResponse } from 'next/server'
 import { MacroEstimateSchema } from '@/lib/food/estimate'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
   let resp
   try {
     resp = await client.responses.create({
-      model: 'gpt-4.1-mini',
+      model: process.env.AI_FOOD_PHOTO_MODEL || 'gpt-4.1-mini',
       input: [
         {
           role: 'user',
@@ -157,6 +158,23 @@ export async function POST(req: Request) {
       { ok: false, error: 'Invalid estimate shape', raw: parsed },
       { status: 502 }
     )
+  }
+
+  // Best-effort usage tracking (no prompts stored)
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('ai_usage_events').insert({
+        user_id: user.id,
+        kind: 'food_photo_estimate',
+        model: process.env.AI_FOOD_PHOTO_MODEL || 'gpt-4.1-mini',
+      })
+    }
+  } catch {
+    // ignore
   }
 
   return NextResponse.json({ ok: true, estimate: result.data })

@@ -125,7 +125,7 @@ export async function POST(req: Request) {
       'Return concise advice that the user can repeat tomorrow.'
 
     const res = await client.chat.completions.create({
-      model: process.env.SB_CLASSIFIER_MODEL || 'gpt-4o-mini',
+      model: process.env.AI_INSIGHT_MODEL || 'gpt-4o-mini',
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: JSON.stringify(payload) },
@@ -139,6 +139,17 @@ export async function POST(req: Request) {
       parsed = JSON.parse(txt)
     } catch {
       parsed = { summary: txt }
+    }
+
+    // Best-effort usage tracking (no prompts stored)
+    try {
+      await supabase.from('ai_usage_events').insert({
+        user_id: user.id,
+        kind: 'weight_insight',
+        model: process.env.AI_INSIGHT_MODEL || 'gpt-4o-mini',
+      })
+    } catch {
+      // ignore
     }
 
     return NextResponse.json({ ok: true, timeZone, date: selectedDate, insight: parsed })

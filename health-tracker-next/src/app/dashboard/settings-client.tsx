@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useEffect, useState } from 'react'
 
 export function SettingsClient({
@@ -41,6 +43,19 @@ export function SettingsClient({
   const [origin, setOrigin] = useState<string>('')
   useEffect(() => {
     setOrigin(window.location.origin)
+  }, [])
+
+  const [aiUsage, setAiUsage] = useState<any | null>(null)
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch('/api/ai/usage')
+        const json = await res.json().catch(() => null)
+        if (res.ok && json?.ok) setAiUsage(json)
+      } catch {
+        // ignore
+      }
+    })()
   }, [])
 
   const [hydrationBusy, setHydrationBusy] = useState(false)
@@ -154,6 +169,48 @@ export function SettingsClient({
       <p className="text-sm text-slate-300">
         Next: meal photo → estimate → edit → save, plus USDA/OpenFoodFacts search.
       </p>
+
+      <div className="h-px bg-slate-800" />
+
+      <div className="space-y-2 max-w-md">
+        <h3 className="text-base font-semibold">AI usage (credits)</h3>
+        <p className="text-sm text-slate-300">
+          Counts of AI-powered actions. This helps you spot what’s using credits.
+        </p>
+
+        {aiUsage ? (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/20 p-3 text-sm text-slate-200">
+            <div className="text-xs text-slate-400">Last 7 days</div>
+            <div className="mt-1">Total: {aiUsage.last7?.total ?? 0}</div>
+            <div className="mt-1 text-xs text-slate-300">
+              {aiUsage.last7?.by_kind
+                ? Object.entries(aiUsage.last7.by_kind)
+                    .map(([k, v]: any) => `${k}: ${v}`)
+                    .join(' • ')
+                : '—'}
+            </div>
+
+            <div className="mt-3 text-xs text-slate-400">Last 30 days</div>
+            <div className="mt-1">Total: {aiUsage.last30?.total ?? 0}</div>
+            <div className="mt-1 text-xs text-slate-300">
+              {aiUsage.last30?.by_kind
+                ? Object.entries(aiUsage.last30.by_kind)
+                    .map(([k, v]: any) => `${k}: ${v}`)
+                    .join(' • ')
+                : '—'}
+            </div>
+
+            <div className="mt-3 text-xs text-slate-400">Ways to reduce usage</div>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-slate-300">
+              <li>Use AI photo estimate when needed; for repeat meals, save a Favorite and log from that.</li>
+              <li>Weight insight uses a cheaper model by default; photo macros use a stronger model.</li>
+              <li>If you want, we can lower the insight model further via <span className="font-mono">AI_INSIGHT_MODEL</span>.</li>
+            </ul>
+          </div>
+        ) : (
+          <div className="text-sm text-slate-400">AI usage not available yet (run the ai_usage.sql migration).</div>
+        )}
+      </div>
 
       <div className="h-px bg-slate-800" />
 
@@ -293,6 +350,48 @@ export function SettingsClient({
 
       <div className="h-px bg-slate-800" />
 
+      <div className="space-y-2 max-w-md">
+        <h3 className="text-base font-semibold">AI usage (credits)</h3>
+        <p className="text-sm text-slate-300">
+          Counts of AI-powered actions. This helps you spot what’s using credits.
+        </p>
+
+        {aiUsage ? (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/20 p-3 text-sm text-slate-200">
+            <div className="text-xs text-slate-400">Last 7 days</div>
+            <div className="mt-1">Total: {aiUsage.last7?.total ?? 0}</div>
+            <div className="mt-1 text-xs text-slate-300">
+              {aiUsage.last7?.by_kind
+                ? Object.entries(aiUsage.last7.by_kind)
+                    .map(([k, v]: any) => `${k}: ${v}`)
+                    .join(' • ')
+                : '—'}
+            </div>
+
+            <div className="mt-3 text-xs text-slate-400">Last 30 days</div>
+            <div className="mt-1">Total: {aiUsage.last30?.total ?? 0}</div>
+            <div className="mt-1 text-xs text-slate-300">
+              {aiUsage.last30?.by_kind
+                ? Object.entries(aiUsage.last30.by_kind)
+                    .map(([k, v]: any) => `${k}: ${v}`)
+                    .join(' • ')
+                : '—'}
+            </div>
+
+            <div className="mt-3 text-xs text-slate-400">Ways to reduce usage</div>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-slate-300">
+              <li>Use AI photo estimate when needed; for repeat meals, save a Favorite and log from that.</li>
+              <li>Weight insight uses a cheaper model by default; photo macros use a stronger model.</li>
+              <li>If you want, we can lower the insight model further via <span className="font-mono">AI_INSIGHT_MODEL</span>.</li>
+            </ul>
+          </div>
+        ) : (
+          <div className="text-sm text-slate-400">AI usage not available yet (run the ai_usage.sql migration).</div>
+        )}
+      </div>
+
+      <div className="h-px bg-slate-800" />
+
       <div className="space-y-3 max-w-md">
         <h3 className="text-base font-semibold">Time zone</h3>
         <p className="text-sm text-slate-300">
@@ -344,6 +443,48 @@ export function SettingsClient({
           {tzOk ? <p className="text-sm text-emerald-400">{tzOk}</p> : null}
           {tzError ? <p className="text-sm text-red-400">{tzError}</p> : null}
         </div>
+      </div>
+
+      <div className="h-px bg-slate-800" />
+
+      <div className="space-y-2 max-w-md">
+        <h3 className="text-base font-semibold">AI usage (credits)</h3>
+        <p className="text-sm text-slate-300">
+          Counts of AI-powered actions. This helps you spot what’s using credits.
+        </p>
+
+        {aiUsage ? (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/20 p-3 text-sm text-slate-200">
+            <div className="text-xs text-slate-400">Last 7 days</div>
+            <div className="mt-1">Total: {aiUsage.last7?.total ?? 0}</div>
+            <div className="mt-1 text-xs text-slate-300">
+              {aiUsage.last7?.by_kind
+                ? Object.entries(aiUsage.last7.by_kind)
+                    .map(([k, v]: any) => `${k}: ${v}`)
+                    .join(' • ')
+                : '—'}
+            </div>
+
+            <div className="mt-3 text-xs text-slate-400">Last 30 days</div>
+            <div className="mt-1">Total: {aiUsage.last30?.total ?? 0}</div>
+            <div className="mt-1 text-xs text-slate-300">
+              {aiUsage.last30?.by_kind
+                ? Object.entries(aiUsage.last30.by_kind)
+                    .map(([k, v]: any) => `${k}: ${v}`)
+                    .join(' • ')
+                : '—'}
+            </div>
+
+            <div className="mt-3 text-xs text-slate-400">Ways to reduce usage</div>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-slate-300">
+              <li>Use AI photo estimate when needed; for repeat meals, save a Favorite and log from that.</li>
+              <li>Weight insight uses a cheaper model by default; photo macros use a stronger model.</li>
+              <li>If you want, we can lower the insight model further via <span className="font-mono">AI_INSIGHT_MODEL</span>.</li>
+            </ul>
+          </div>
+        ) : (
+          <div className="text-sm text-slate-400">AI usage not available yet (run the ai_usage.sql migration).</div>
+        )}
       </div>
 
       <div className="h-px bg-slate-800" />
