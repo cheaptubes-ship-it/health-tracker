@@ -1009,6 +1009,7 @@ export default async function DashboardPage({
             <SummaryClient
               stats={summaryStats}
               selectedDate={selectedDate}
+              timeZone={timezone}
               unitPref={(hydrationTargets?.unit_pref as 'oz' | 'ml') ?? 'oz'}
               lastWeightAsOf={totals.lastWeight != null ? Number(totals.lastWeight) : null}
             />

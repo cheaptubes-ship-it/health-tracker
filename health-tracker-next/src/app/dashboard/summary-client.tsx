@@ -1,6 +1,9 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 import type { SummaryRange, SummaryStats } from './summary-types'
 
 function mlToOz(ml: number) {
@@ -12,12 +15,65 @@ export function SummaryClient({
   selectedDate,
   unitPref,
   lastWeightAsOf,
+  timeZone,
 }: {
   stats: SummaryStats
   selectedDate: string
   unitPref: 'oz' | 'ml'
   lastWeightAsOf: number | null
+  timeZone: string
 }) {
+  const [insight, setInsight] = useState<unknown | null>(null)
+  const [insightBusy, setInsightBusy] = useState(false)
+  const [insightErr, setInsightErr] = useState<string | null>(null)
+
+  const shouldAutoGenerate = useMemo(() => {
+    // Only auto-generate for day view, when weight dropped vs prev.
+    if (stats.range !== 'day') return false
+    if (stats.weight.delta == null || !(stats.weight.delta < 0)) return false
+
+    // Morning in user's timezone (rough).
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hour12: false }).formatToParts(new Date())
+    const h = Number(parts.find((p) => p.type === 'hour')?.value ?? NaN)
+    if (!Number.isFinite(h)) return false
+    return h >= 5 && h <= 11
+  }, [stats.range, stats.weight.delta, timeZone])
+
+  async function generateInsight() {
+    setInsightBusy(true)
+    setInsightErr(null)
+    try {
+      const cacheKey = `weightInsight:${selectedDate}`
+      const cached = typeof window !== 'undefined' ? window.localStorage.getItem(cacheKey) : null
+      if (cached) {
+        setInsight(JSON.parse(cached))
+        return
+      }
+
+      const res = await fetch('/api/insights/weight-loss', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ date: selectedDate }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to generate insight')
+      setInsight(json.insight)
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(cacheKey, JSON.stringify(json.insight))
+      }
+    } catch (e) {
+      setInsightErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setInsightBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!shouldAutoGenerate) return
+    void generateInsight()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAutoGenerate, selectedDate])
+
   const ranges: Array<{ id: SummaryRange; label: string }> = [
     { id: 'day', label: 'Day' },
     { id: 'week', label: 'Week' },
@@ -129,7 +185,19 @@ export function SummaryClient({
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
-          <div className="text-sm font-semibold">Weight</div>
+          <div className="flex items-baseline justify-between gap-3">
+            <div className="text-sm font-semibold">Weight</div>
+            {stats.range === 'day' ? (
+              <button
+                type="button"
+                className="rounded border border-slate-700 bg-slate-950/20 px-2 py-1 text-xs text-slate-200 hover:bg-slate-900/40"
+                onClick={() => void generateInsight()}
+                disabled={insightBusy}
+              >
+                {insightBusy ? 'Thinking…' : 'AI'}
+              </button>
+            ) : null}
+          </div>
           <div className="mt-2 text-sm text-slate-200">
             {stats.weight.first != null || stats.weight.last != null ? (
               <>
@@ -157,6 +225,39 @@ export function SummaryClient({
             ) : (
               <div className="text-sm text-slate-300">No weight in range.</div>
             )}
+
+            {insightErr ? <div className="mt-2 text-xs text-red-400">{insightErr}</div> : null}
+            {insight ? (
+              <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/30 p-2 text-xs text-slate-200">
+                {typeof (insight as any)?.summary === 'string' ? (
+                  <div>{String((insight as any).summary)}</div>
+                ) : (
+                  <div className="space-y-1">
+                    {(insight as any)?.headline ? <div className="font-semibold">{String((insight as any).headline)}</div> : null}
+                    {Array.isArray((insight as any)?.what_helped) ? (
+                      <div>
+                        <div className="text-slate-400">What likely helped</div>
+                        <ul className="list-disc pl-5">
+                          {((insight as any).what_helped as any[]).slice(0, 4).map((x: unknown, i: number) => (
+                            <li key={i}>{String(x)}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {Array.isArray((insight as any)?.keep_doing) ? (
+                      <div>
+                        <div className="text-slate-400">Keep doing</div>
+                        <ul className="list-disc pl-5">
+                          {((insight as any).keep_doing as any[]).slice(0, 4).map((x: unknown, i: number) => (
+                            <li key={i}>{String(x)}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
 
