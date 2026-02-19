@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { peptideKey } from '@/app/dashboard/peptides-utils'
 
 export const runtime = 'nodejs'
 
@@ -51,6 +54,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url)
     const token = url.searchParams.get('token')?.trim()
     const timing = (url.searchParams.get('timing')?.trim() as 'am' | 'pm') ?? 'am'
+    const debug = String(url.searchParams.get('debug') ?? '').trim() === '1'
 
     if (!token) return NextResponse.json({ ok: false, error: 'Missing token' }, { status: 400 })
     if (timing !== 'am' && timing !== 'pm') {
@@ -110,19 +114,29 @@ export async function GET(req: Request) {
       .eq('entry_date', entry_date)
       .eq('status', 'taken')
 
-    const key = (name: string, t: string) =>
-      `${String(name ?? '')
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_+|_+$/g, '')}__${String(t ?? '').trim() || 'unknown'}`
+    const key = (name: string, t: string) => {
+      const k = peptideKey(String(name ?? ''))
+      const tt = String(t ?? '').trim() || 'unknown'
+      return `${k}__${tt}`
+    }
 
-    const takenKeys = new Set((taken ?? []).map((r: any) => key(String(r.name ?? ''), String(r.timing ?? ''))))
+    const takenKeys = new Set(
+      (taken ?? [])
+        .map((r: any) => key(String(r.name ?? ''), String(r.timing ?? '')))
+        .filter((k: string) => Boolean(k && !k.startsWith('__')))
+    )
 
-    const items = (data ?? []).filter((it: any) => {
+    const scheduled = (data ?? []).map((it: any) => {
+      const name = String(it.display_name ?? it.normalized_name ?? '').trim()
       const t = String(it.timing ?? '')
-      return !takenKeys.has(key(String(it.display_name ?? it.normalized_name ?? ''), t))
+      return {
+        ...it,
+        _k: key(name, t),
+      }
     })
+
+    const due = scheduled.filter((it: any) => it._k && !takenKeys.has(String(it._k)))
+    const alreadyTaken = scheduled.filter((it: any) => it._k && takenKeys.has(String(it._k)))
 
     const label = (it: any) => {
       const name = String(it.display_name ?? it.normalized_name ?? '').trim()
@@ -132,13 +146,36 @@ export async function GET(req: Request) {
       return `${name}${dose ? ` (${dose})` : ''}`
     }
 
-    const lines = items.map(label)
-    const message = lines.length
-      ? `${timing.toUpperCase()} peptides due (${entry_date}):\n` + lines.map((x) => `- ${x}`).join('\n')
-      : `No ${timing.toUpperCase()} peptides due (${entry_date}).`
+    const linesDue = due.map(label)
+    const linesTaken = alreadyTaken.map(label)
+
+    const header = `Reminder (${timing.toUpperCase()} ${timing === 'am' ? '6–8am' : '6–8pm'}): ${entry_date}`
+
+    const message =
+      header +
+      '\n' +
+      (linesDue.length
+        ? `\nDue now:\n` + linesDue.map((x) => `- ${x}`).join('\n')
+        : '\nDue now: (none)') +
+      '\n' +
+      (linesTaken.length
+        ? `\nAlready taken today:\n` + linesTaken.map((x) => `- ${x}`).join('\n')
+        : '\nAlready taken today: (none)') +
+      '\n' +
+      (!scheduled.length ? `\nScheduled today: (none)` : `\nScheduled today: ${scheduled.length} item(s)`)
 
     const windowNote = timing === 'am' ? 'AM window 6–8am' : 'PM window 6–8pm'
     const messageWithWindow = inReminderWindow ? message : `${message}\n\n(Not in ${windowNote}.)`
+
+    const debugObj = debug
+      ? {
+          nowMin,
+          inReminderWindow,
+          timingList,
+          scheduledKeys: scheduled.map((x: any) => String(x._k)),
+          takenKeys: Array.from(takenKeys),
+        }
+      : null
 
     // For iOS Shortcuts notifications, plain text is handy.
     const format = String(url.searchParams.get('format') ?? '').trim()
@@ -146,7 +183,19 @@ export async function GET(req: Request) {
       return new Response(messageWithWindow, { headers: { 'content-type': 'text/plain; charset=utf-8' } })
     }
 
-    return NextResponse.json({ ok: true, timeZone, entry_date, dow, timing, items, message: messageWithWindow, inReminderWindow })
+    return NextResponse.json({
+      ok: true,
+      timeZone,
+      entry_date,
+      dow,
+      timing,
+      due,
+      alreadyTaken,
+      scheduledCount: scheduled.length,
+      message: messageWithWindow,
+      inReminderWindow,
+      debug: debugObj,
+    })
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : String(e) },
