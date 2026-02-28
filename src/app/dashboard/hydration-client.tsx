@@ -71,6 +71,27 @@ export function HydrationClient({
     router.refresh()
   }
 
+  async function addEmergenC() {
+    try {
+      setError(null)
+      setNotice(null)
+      await add({
+        name: 'Emergen-C (1000mg vitamin C)',
+        servings: 1,
+        water_ml: 0,
+        sodium_mg: 0,
+        potassium_mg: 0,
+        magnesium_mg: 0,
+        caffeine_mg: 0,
+        sugar_g: 3.9,
+        lemon_juice: false,
+      })
+      setNotice('Emergen-C added')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -100,187 +121,31 @@ export function HydrationClient({
                 </div>
               ) : null}
             </div>
+
             <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3">
               <div className="text-xs text-slate-400">Sodium</div>
-              <div className="text-lg font-semibold">{Math.round(totals.sodium_mg)} mg</div>
-              {remaining.sodium_mg != null ? (
-                <div className="text-xs text-slate-400">Remaining: {Math.round(remaining.sodium_mg)} mg</div>
-              ) : null}
+              <div className="text-lg font-semibold">{remaining.sodium_mg ?? '—'}</div>
             </div>
+
             <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3">
               <div className="text-xs text-slate-400">Potassium</div>
-              <div className="text-lg font-semibold">{Math.round(totals.potassium_mg)} mg</div>
-              {remaining.potassium_mg != null ? (
-                <div className="text-xs text-slate-400">Remaining: {Math.round(remaining.potassium_mg)} mg</div>
-              ) : null}
+              <div className="text-lg font-semibold">{remaining.potassium_mg ?? '—'}</div>
             </div>
+
             <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3">
               <div className="text-xs text-slate-400">Magnesium</div>
-              <div className="text-lg font-semibold">{Math.round(totals.magnesium_mg)} mg</div>
-              {remaining.magnesium_mg != null ? (
-                <div className="text-xs text-slate-400">Remaining: {Math.round(remaining.magnesium_mg)} mg</div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-slate-200">
-            <input
-              type="checkbox"
-              checked={lemonJuice}
-              onChange={(e) => setLemonJuice(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-700 bg-slate-950/40"
-            />
-            Lemon juice
-          </label>
-
-          <div className="grid gap-1 text-sm text-slate-200">
-            <div>Servings</div>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  { label: '1/3', value: '0.3333' },
-                  { label: '1/2', value: '0.5' },
-                  { label: '2/3', value: '0.6667' },
-                  { label: '1', value: '1' },
-                ] as const
-              ).map((x) => (
-                <button
-                  key={x.value}
-                  type="button"
-                  onClick={() => setServings(x.value)}
-                  className={
-                    'rounded-full border px-3 py-1 text-sm ' +
-                    (servings === x.value
-                      ? 'border-indigo-400 bg-indigo-500/20 text-slate-50'
-                      : 'border-slate-700 bg-slate-950/30 text-slate-100 hover:bg-slate-900/50')
-                  }
-                  aria-pressed={servings === x.value}
-                >
-                  {x.label}
-                </button>
-              ))}
+              <div className="text-lg font-semibold">{remaining.magnesium_mg ?? '—'}</div>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400"
-              onClick={() =>
-                void add({ name: 'Water', servings, water_ml: ozToMl(8), lemon_juice: lemonJuice })
-              }
-            >
-              + 8 oz water
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
-              onClick={() =>
-                void add({ name: 'Water', servings, water_ml: ozToMl(16), lemon_juice: lemonJuice })
-              }
-            >
-              + 16 oz water
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
-              onClick={() =>
-                void add({ name: 'Water', servings, water_ml: ozToMl(32), lemon_juice: lemonJuice })
-              }
-            >
-              + 32 oz water
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
-              onClick={() =>
-                void add({ name: 'LMNT', servings, sodium_mg: 1000, potassium_mg: 200, magnesium_mg: 60 })
-              }
-            >
-              + LMNT
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900/50"
-              onClick={() =>
-                void add({ name: 'Propel', servings, sodium_mg: 230, potassium_mg: 60 })
-              }
-            >
-              + Propel
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => addEmergenC()}
+            className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900"
+          >
+            Add Emergen-C (1000mg vitamin C)
+          </button>
         </div>
-
-        <div className="rounded-xl border border-slate-800 bg-slate-950/10 p-4">
-          <div className="flex items-baseline justify-between">
-            <h3 className="font-medium">Entries ({entries.length})</h3>
-            <p className="text-xs text-slate-400">{selectedDate}</p>
-          </div>
-
-          {entries.length ? (
-            <ul className="mt-3 divide-y divide-slate-800">
-              {entries.map((e) => (
-                <li key={e.id} className="py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-medium text-slate-100">
-                        {e.name}
-                        {e.servings != null && Number(e.servings) !== 1 ? (
-                          <span className="ml-2 text-xs text-slate-400">× {Number(e.servings)}</span>
-                        ) : null}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-300">
-                        {e.water_ml ? `Water ${unit === 'oz' ? `${mlToOz(Number(e.water_ml)).toFixed(1)} oz` : `${Math.round(Number(e.water_ml))} ml`}` : ''}
-                        {e.lemon_juice ? ' • Lemon' : ''}
-                        {e.sodium_mg != null ? ` • Na ${Math.round(Number(e.sodium_mg))} mg` : ''}
-                        {e.potassium_mg != null ? ` • K ${Math.round(Number(e.potassium_mg))} mg` : ''}
-                        {e.magnesium_mg != null ? ` • Mg ${Math.round(Number(e.magnesium_mg))} mg` : ''}
-                        {e.caffeine_mg != null ? ` • Caf ${Math.round(Number(e.caffeine_mg))} mg` : ''}
-                        {e.sugar_g != null ? ` • Sugar ${Number(e.sugar_g)} g` : ''}
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="rounded-lg border border-slate-700 bg-slate-950/30 px-2 py-1 text-xs text-slate-100 hover:bg-slate-900/50"
-                      onClick={async () => {
-                        try {
-                          setError(null)
-                          setNotice(null)
-                          const res = await fetch('/api/hydration/delete', {
-                            method: 'POST',
-                            headers: { 'content-type': 'application/json' },
-                            body: JSON.stringify({ id: e.id }),
-                          })
-                          const json = await res.json().catch(() => null)
-                          if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to delete')
-                          setNotice('Deleted')
-                          router.refresh()
-                        } catch (err) {
-                          setError(err instanceof Error ? err.message : String(err))
-                        }
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-3 text-sm text-slate-300">No hydration entries yet.</p>
-          )}
-        </div>
-
-        {notice ? <p className="text-sm text-emerald-400">{notice}</p> : null}
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
-
-        <p className="text-xs text-slate-400">
-          Note: water targets + unit preference are set in Settings (Hydration section).
-        </p>
       </div>
-    </div>
-  )
+    )
 }
