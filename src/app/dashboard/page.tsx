@@ -1003,8 +1003,7 @@ export default async function DashboardPage({
                   : null
               }
               totals={hydrationTotals}
-              entries={(hydration ?? []) as HydrationEntry[]}
-            />
+                          </>
           ) : tab === 'summary' ? (
             <SummaryClient
               stats={summaryStats}
