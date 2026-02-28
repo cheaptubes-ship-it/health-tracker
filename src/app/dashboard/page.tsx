@@ -988,7 +988,7 @@ export default async function DashboardPage({
             <ActivityClient selectedDate={selectedDate} />
           ) : tab === 'training' ? (
             <TrainingClient selectedDate={selectedDate} />
-          ) : tab === 'hydration' ? (
+          ) : $1<div className="text-2xl font-black text-red-500">HYDRATION_TAB_ACTIVE</div>
             <HydrationClient
               selectedDate={selectedDate}
               targets={
