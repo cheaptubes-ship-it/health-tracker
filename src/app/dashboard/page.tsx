@@ -55,6 +55,8 @@ export default async function DashboardPage({
   searchParams: Promise<{ tab?: string; date?: string; range?: SummaryRange }>
 }) {
   const { tab = 'food', date, range } = await searchParams
+  const tabDebug = tab
+  const tabDebug = tab
   // If the user didn't explicitly pick a date, keep the URL clean and always default to "today".
   // This avoids getting "stuck" on yesterday when you revisit /dashboard or switch tabs.
   const hasExplicitDate = typeof date === 'string' && date.trim().length > 0
