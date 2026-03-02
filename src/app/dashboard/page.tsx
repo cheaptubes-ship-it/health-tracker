@@ -918,7 +918,6 @@ export default async function DashboardPage({
                         </div>
                       </div>
                     ) : null}
-                  </>
                 ) : (
                   <p className="mt-2 text-sm text-slate-300">
                     Set macro targets in Settings to enable recommendations.
@@ -989,7 +988,7 @@ export default async function DashboardPage({
             <ActivityClient selectedDate={selectedDate} />
           ) : tab === 'training' ? (
             <TrainingClient selectedDate={selectedDate} />
-          ) : $1<div className="text-2xl font-black text-red-500">HYDRATION_TAB_ACTIVE</div>
+          ) : tab === 'hydration' ? (
             <HydrationClient
               selectedDate={selectedDate}
               targets={
@@ -1004,7 +1003,8 @@ export default async function DashboardPage({
                   : null
               }
               totals={hydrationTotals}
-                          </>
+              entries={(hydration ?? []) as HydrationEntry[]}
+            />
           ) : tab === 'summary' ? (
             <SummaryClient
               stats={summaryStats}
