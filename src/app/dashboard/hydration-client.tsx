@@ -114,11 +114,16 @@ export function HydrationClient({
     }
   }
 
+  console.log('Hydration entries count:', entries.length)
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Hydration</h2>
+          <div className="text-xs text-red-400">
+            Hydration entries loaded: {entries.length}
+          </div>
           <p className="text-sm text-slate-300">Track water + electrolytes (LMNT/Propel).</p>
         </div>
       </div>
