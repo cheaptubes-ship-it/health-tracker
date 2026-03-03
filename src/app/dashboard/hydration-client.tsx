@@ -93,6 +93,27 @@ export function HydrationClient({
     }
   }
 
+  async function addCalm() {
+    try {
+      setError(null)
+      setNotice(null)
+      await add({
+        name: 'Calm (325mg magnesium, 2 tsp)',
+        servings: 1,
+        water_ml: 0,
+        sodium_mg: 0,
+        potassium_mg: 0,
+        magnesium_mg: 325,
+        caffeine_mg: 0,
+        sugar_g: 0,
+        lemon_juice: false,
+      })
+      setNotice('Calm added')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -145,6 +166,14 @@ export function HydrationClient({
             className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900"
           >
             Add Emergen-C (1000mg vitamin C)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => addCalm()}
+            className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-2 text-sm text-slate-100 hover:bg-slate-900"
+          >
+            Add Calm (325mg magnesium, 2 tsp)
           </button>
         </div>
       </div>
