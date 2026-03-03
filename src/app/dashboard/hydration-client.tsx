@@ -57,6 +57,9 @@ export function HydrationClient({
     }
   }, [targets, totals])
 
+  console.log('Hydration entries count:', entries.length)
+  const [debugShowing, setDebugShowing] = useState(false)
+
   async function add(payload: Record<string, unknown>) {
     setError(null)
     setNotice(null)
@@ -94,6 +97,7 @@ export function HydrationClient({
   }
 
   async function addCalm() {
+    console.log('Rendering Calm button')
     try {
       setError(null)
       setNotice(null)
@@ -114,20 +118,18 @@ export function HydrationClient({
     }
   }
 
-  console.log('Hydration entries count:', entries.length)
-
-  console.log('Hydration client mounted')
-  const [showDebug, setShowDebug] = useState(false)
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Hydration</h2>
-          <div className="text-xs text-red-400">
-            Hydration entries loaded: {entries.length}
-          </div>
           <p className="text-sm text-slate-300">Track water + electrolytes (LMNT/Propel).</p>
+          <button
+            className="rounded border border-slate-700 bg-slate-950/20 px-3 py-2 text-xs text-slate-100 hover:bg-slate-900"
+            onClick={() => setDebugShowing(!debugShowing)}
+          >
+            {debugShowing ? 'Hide' : 'Show'} hydration debug (entries = {entries.length})
+          </button>
         </div>
       </div>
 
@@ -185,5 +187,13 @@ export function HydrationClient({
           </button>
         </div>
       </div>
-    )
+      {debugShowing ? (
+        <div className="rounded-xl border border-red-600 bg-red-950/20 p-4 text-xs">
+          <div>DEBUG — Hydration entries loaded: {entries.length}</div>
+          <div>Emergen-C button should be visible.</div>
+          <div>Calm button should be visible.</div>
+        </div>
+      ) : null}
+    </div>
+  )
 }
