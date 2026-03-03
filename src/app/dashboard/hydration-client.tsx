@@ -123,6 +123,7 @@ export function HydrationClient({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Hydration</h2>
+          <div className="text-red-400">Hydration entries loaded: {entries.length}</div>
           <p className="text-sm text-slate-300">Track water + electrolytes (LMNT/Propel).</p>
           <button
             className="rounded border border-slate-700 bg-slate-950/20 px-3 py-2 text-xs text-slate-100 hover:bg-slate-900"
