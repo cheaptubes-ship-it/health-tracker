@@ -116,6 +116,9 @@ export function HydrationClient({
 
   console.log('Hydration entries count:', entries.length)
 
+  console.log('Hydration client mounted')
+  const [showDebug, setShowDebug] = useState(false)
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
