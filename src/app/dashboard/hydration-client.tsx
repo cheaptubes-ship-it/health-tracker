@@ -72,6 +72,7 @@ export function HydrationClient({
   }
 
   async function addEmergenC() {
+    console.log('Rendering Emergen-C button')
     try {
       setError(null)
       setNotice(null)
@@ -94,7 +95,6 @@ export function HydrationClient({
 
   return (
     <div className="space-y-4">
-      <div className="text-xs font-bold text-red-400">HYDRATION_RENDER_OK</div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Hydration</h2>
