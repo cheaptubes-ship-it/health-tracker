@@ -31,3 +31,21 @@ NEVER edit files at the repo root or create duplicate component files.
 - Fasting component: `health-tracker-next/src/app/dashboard/fasting-client.tsx`
 - API routes: `health-tracker-next/src/app/api/`
 - Middleware: `health-tracker-next/middleware.ts`
+
+## ⚠️ CRITICAL PATH RULES
+- ALL source files are under: health-tracker-next/src/
+- NEVER create or edit files at the repo root
+- NEVER create duplicate component files
+- Always verify the file path starts with health-tracker-next/src/ before editing
+
+# .github/workflows/validate.yml
+name: Build Check
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: cd health-tracker-next && npm ci && npm run build
+
