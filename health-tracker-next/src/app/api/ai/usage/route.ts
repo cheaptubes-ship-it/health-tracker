@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
@@ -14,7 +12,7 @@ function addDaysYmd(ymd: string, delta: number) {
   return `${yyyy}-${mm}-${dd}`
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const supabase = await createSupabaseServerClient()
     const {
@@ -22,37 +20,30 @@ export async function GET() {
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 })
 
+    const url = new URL(req.url)
+    const days = Math.max(1, Math.min(90, Number(url.searchParams.get('days') ?? 30) || 30))
+
     const end = new Date()
     const endYmd = end.toISOString().slice(0, 10)
-    const start7 = addDaysYmd(endYmd, -6)
-    const start30 = addDaysYmd(endYmd, -29)
+    const startYmd = addDaysYmd(endYmd, -(days - 1))
 
     const { data, error } = await supabase
       .from('ai_usage_events')
-      .select('kind, created_at')
+      .select('kind, created_at, model')
       .eq('user_id', user.id)
-      .gte('created_at', start30 + 'T00:00:00Z')
+      .gte('created_at', startYmd + 'T00:00:00Z')
       .lte('created_at', end.toISOString())
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
 
-    const rows = (data ?? []) as any[]
-
-    function agg(fromYmd: string) {
-      const by_kind: Record<string, number> = {}
-      let total = 0
-      for (const r of rows) {
-        const created = String(r.created_at ?? '')
-        const ymd = created.slice(0, 10)
-        if (ymd < fromYmd) continue
-        const k = String(r.kind ?? 'unknown')
-        by_kind[k] = (by_kind[k] ?? 0) + 1
-        total += 1
-      }
-      return { from: fromYmd, to: endYmd, total, by_kind }
+    const rows = data ?? []
+    const counts: Record<string, number> = {}
+    for (const r of rows as any[]) {
+      const k = String(r.kind ?? 'unknown')
+      counts[k] = (counts[k] ?? 0) + 1
     }
 
-    return NextResponse.json({ ok: true, last7: agg(start7), last30: agg(start30) })
+    return NextResponse.json({ ok: true, days, startYmd, endYmd, counts, total: rows.length })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 })
   }
