@@ -76,7 +76,7 @@ export function HydrationClient({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Hydration</h2>
-          <p className="text-sm text-slate-300">Track water + electrolytes (LMNT/Propel).</p>
+          <p className="text-sm text-slate-300">Track water + electrolytes (LMNT/Propel/Emergen-C/Calm).</p>
         </div>
       </div>
 
