@@ -667,7 +667,7 @@ export default async function DashboardPage({
             <Link
               key={t.id}
               href={
-                hasExplicitDate
+                hasExplicitDate && selectedDate !== formatDateInTz(timezone)
                   ? `/dashboard?tab=${t.id}&date=${selectedDate}`
                   : `/dashboard?tab=${t.id}`
               }
