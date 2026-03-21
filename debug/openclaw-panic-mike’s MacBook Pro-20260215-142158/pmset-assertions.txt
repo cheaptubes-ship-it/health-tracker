@@ -1,0 +1,15 @@
+2026-02-15 14:22:09 -0500 
+Assertion status system-wide:
+   BackgroundTask                 0
+   ApplePushServiceTask           0
+   UserIsActive                   1
+   PreventUserIdleDisplaySleep    0
+   PreventSystemSleep             0
+   ExternalMedia                  0
+   PreventUserIdleSystemSleep     1
+   NetworkClientActive            0
+Listed by owning process:
+   pid 337(powerd): [0x00014a7e00018355] 00:58:33 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"  
+   pid 394(WindowServer): [0x00014a7e00098352] 00:00:12 UserIsActive named: "com.apple.iohideventsystem.queue.tickle serviceID:100000917 service:AppleHIDKeyboardEventDriverV2 product:Apple Internal Keyboard / Trackpad eventType:3"  
+	Timeout will fire in 107 secs Action=TimeoutActionRelease
+No kernel assertions.

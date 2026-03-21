@@ -1,0 +1,8 @@
+timestamp: 
+host: mike’s MacBook Pro
+whoami: mikefoley
+cwd: /Users/mikefoley
+macos: ProductName:		macOS
+ProductVersion:		15.6.1
+BuildVersion:		24G90
+uptime: 14:21  up 1 day, 23:43, 2 users, load averages: 2.86 2.24 2.16

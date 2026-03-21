@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  /* Default to a high-contrast dark theme */
+  --background: #0b1220; /* slate-ish */
+  --foreground: #e5e7eb; /* slate-200 */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Keep dark color-scheme for better form controls on macOS */
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Default input styling (works with Tailwind classes too) */
+:where(input, select, textarea) {
+  color-scheme: dark;
+}

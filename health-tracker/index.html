@@ -1,0 +1,2088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Peptide Tracker - Vial-Based Dosing</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    #root {
+      width: 100%;
+      min-height: 100vh;
+    }
+    
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .animate-fadeIn {
+      animation: fadeIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    
+    .animate-slideIn {
+      animation: slideIn 0.4s ease-out;
+    }
+
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
+    .timing-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .timing-morning {
+      background: linear-gradient(135deg, #FFD93D 0%, #FFA500 100%);
+      color: #fff;
+    }
+
+    .timing-evening {
+      background: linear-gradient(135deg, #4A5568 0%, #2D3748 100%);
+      color: #fff;
+    }
+
+    .timing-afternoon {
+      background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+      color: #fff;
+    }
+
+    .timing-bedtime {
+      background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+      color: #fff;
+    }
+
+    .timing-both {
+      background: linear-gradient(135deg, #FFD93D 0%, #4A5568 100%);
+      color: #fff;
+    }
+
+    .frequency-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: rgba(139, 92, 246, 0.15);
+      color: rgb(139, 92, 246);
+      border: 1.5px solid rgba(139, 92, 246, 0.3);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-taken {
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    }
+
+    .status-pending {
+      background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+
+    .status-skipped {
+      background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%);
+      color: #fff;
+    }
+
+    .calc-display {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(167, 139, 250, 0.15) 100%);
+      border: 2px solid rgba(139, 92, 246, 0.3);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .calc-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+    }
+
+    .calc-row:last-child {
+      border-bottom: none;
+      padding-top: 1rem;
+      margin-top: 0.5rem;
+      border-top: 2px solid rgba(139, 92, 246, 0.3);
+    }
+
+    .calc-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #6b7280;
+    }
+
+    .calc-value {
+      font-size: 1.125rem;
+      font-weight: 800;
+      color: #8b5cf6;
+    }
+
+    .calc-value-large {
+      font-size: 1.75rem;
+      font-weight: 900;
+      color: #8b5cf6;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
+    
+    // Icon Components
+    const Calendar = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+      </svg>
+    );
+
+    const Droplet = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+      </svg>
+    );
+
+    const Activity = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+      </svg>
+    );
+
+    const Heart = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+      </svg>
+    );
+
+    const TrendingUp = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+        <polyline points="17 6 23 6 23 12"></polyline>
+      </svg>
+    );
+
+    const X = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    );
+
+    const Users = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+    );
+
+    const Plus = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+    );
+
+    const Syringe = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="m18 2 4 4"></path>
+        <path d="m17 7 3-3"></path>
+        <path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"></path>
+        <path d="m9 11 4 4"></path>
+        <path d="m5 19-3 3"></path>
+        <path d="m14 4 6 6"></path>
+      </svg>
+    );
+
+    const Clock = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+    );
+
+    const Repeat = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <polyline points="17 1 21 5 17 9"></polyline>
+        <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+        <polyline points="7 23 3 19 7 15"></polyline>
+        <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+      </svg>
+    );
+
+    const Check = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    );
+
+    const AlertCircle = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+    );
+
+    const Edit = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      </svg>
+    );
+
+    const Beaker = ({ size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M4.5 3h15"></path>
+        <path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"></path>
+        <path d="M6 14h12"></path>
+      </svg>
+    );
+
+    // Food Database
+    const foodDatabase = [
+      { name: "Chicken Breast (100g)", calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+      { name: "Salmon (100g)", calories: 208, protein: 20, carbs: 0, fat: 13 },
+      { name: "Brown Rice (1 cup cooked)", calories: 216, protein: 5, carbs: 45, fat: 1.8 },
+      { name: "Broccoli (1 cup)", calories: 55, protein: 4, carbs: 11, fat: 0.6 },
+      { name: "Eggs (2 large)", calories: 143, protein: 13, carbs: 1, fat: 10 },
+      { name: "Oatmeal (1 cup cooked)", calories: 154, protein: 6, carbs: 27, fat: 3 },
+      { name: "Banana (medium)", calories: 105, protein: 1.3, carbs: 27, fat: 0.4 },
+      { name: "Greek Yogurt (1 cup)", calories: 100, protein: 17, carbs: 6, fat: 0.7 },
+      { name: "Almonds (1 oz)", calories: 164, protein: 6, carbs: 6, fat: 14 },
+      { name: "Sweet Potato (medium)", calories: 103, protein: 2.3, carbs: 24, fat: 0.2 },
+      { name: "Avocado (half)", calories: 120, protein: 1.5, carbs: 6, fat: 11 },
+      { name: "Spinach (1 cup)", calories: 7, protein: 0.9, carbs: 1, fat: 0.1 },
+      { name: "Tuna (100g)", calories: 132, protein: 28, carbs: 0, fat: 1.3 },
+      { name: "Whole Wheat Bread (2 slices)", calories: 161, protein: 8, carbs: 30, fat: 2 },
+      { name: "Peanut Butter (2 tbsp)", calories: 188, protein: 8, carbs: 7, fat: 16 },
+      { name: "Apple (medium)", calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
+      { name: "Cottage Cheese (1 cup)", calories: 163, protein: 28, carbs: 6, fat: 2.3 },
+      { name: "Quinoa (1 cup cooked)", calories: 222, protein: 8, carbs: 39, fat: 3.6 },
+      { name: "Turkey Breast (100g)", calories: 135, protein: 30, carbs: 0, fat: 0.7 },
+      { name: "Blueberries (1 cup)", calories: 84, protein: 1, carbs: 21, fat: 0.5 },
+      { name: "Protein Shake", calories: 120, protein: 24, carbs: 3, fat: 1.5 },
+      { name: "Pasta (1 cup cooked)", calories: 220, protein: 8, carbs: 43, fat: 1.3 },
+      { name: "Beef (100g lean)", calories: 250, protein: 26, carbs: 0, fat: 15 },
+      { name: "Orange (medium)", calories: 62, protein: 1.2, carbs: 15, fat: 0.2 },
+      { name: "Milk (1 cup)", calories: 149, protein: 8, carbs: 12, fat: 8 }
+    ];
+
+    // Chart Component
+    const LineChart = memo(({ data, options }) => {
+      const chartRef = useRef(null);
+      const chartInstance = useRef(null);
+
+      useEffect(() => {
+        if (chartRef.current) {
+          const ctx = chartRef.current.getContext('2d');
+          
+          if (chartInstance.current) {
+            chartInstance.current.destroy();
+          }
+
+          chartInstance.current = new Chart(ctx, {
+            type: 'line',
+            data: data,
+            options: options
+          });
+        }
+
+        return () => {
+          if (chartInstance.current) {
+            chartInstance.current.destroy();
+          }
+        };
+      }, [data, options]);
+
+      return (
+        <div style={{ 
+          background: 'rgba(255, 255, 255, 0.95)', 
+          padding: '2rem', 
+          borderRadius: '1.5rem',
+          border: '2px solid rgba(79, 172, 254, 0.2)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+        }}>
+          <canvas ref={chartRef}></canvas>
+        </div>
+      );
+    });
+
+    // User gradients
+    const userGradients = [
+      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+      'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+      'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+      'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+      'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)'
+    ];
+
+    const HealthTracker = () => {
+      const [currentUser, setCurrentUser] = useState(() => {
+        return localStorage.getItem('currentUser') || null;
+      });
+      
+      const [users, setUsers] = useState(() => {
+        const saved = localStorage.getItem('users');
+        return saved ? JSON.parse(saved) : [];
+      });
+
+      const [newUsername, setNewUsername] = useState('');
+      const [showUserSelect, setShowUserSelect] = useState(!currentUser);
+      const [activeTab, setActiveTab] = useState('peptides');
+      const [selectedDate, setSelectedDate] = useState(() => {
+        return new Date().toISOString().split('T')[0];
+      });
+
+      // Vial-Based Peptide Form State
+      const [peptideForm, setPeptideForm] = useState({
+        name: '',
+        vialAmount: '',
+        vialUnit: 'mg',
+        reconVolume: '',
+        desiredDose: '',
+        desiredDoseUnit: 'mcg',
+        syringeUnits: '',
+        frequency: 'daily',
+        timing: 'morning'
+      });
+
+      const [foodForm, setFoodForm] = useState({
+        name: '',
+        calories: '',
+        protein: '',
+        carbs: '',
+        fat: ''
+      });
+
+      const [vitalsForm, setVitalsForm] = useState({
+        systolic: '',
+        diastolic: '',
+        pulse: ''
+      });
+
+      const [searchTerm, setSearchTerm] = useState('');
+      const [showSuggestions, setShowSuggestions] = useState(false);
+
+      const getUserKey = (key) => currentUser ? `${currentUser}_${key}` : key;
+
+      const [data, setData] = useState(() => {
+        if (!currentUser) return { peptides: [], food: [], vitals: [] };
+        const saved = localStorage.getItem(getUserKey('healthData'));
+        return saved ? JSON.parse(saved) : { peptides: [], food: [], vitals: [] };
+      });
+
+      useEffect(() => {
+        if (currentUser) {
+          localStorage.setItem(getUserKey('healthData'), JSON.stringify(data));
+        }
+      }, [data, currentUser]);
+
+      useEffect(() => {
+        localStorage.setItem('users', JSON.stringify(users));
+      }, [users]);
+
+      useEffect(() => {
+        if (currentUser) {
+          localStorage.setItem('currentUser', currentUser);
+        }
+      }, [currentUser]);
+
+      const createUser = () => {
+        if (newUsername.trim() && !users.find(u => u.name === newUsername.trim())) {
+          const newUser = {
+            name: newUsername.trim(),
+            gradient: userGradients[users.length % userGradients.length],
+            createdAt: new Date().toISOString()
+          };
+          setUsers([...users, newUser]);
+          setCurrentUser(newUsername.trim());
+          setNewUsername('');
+          setShowUserSelect(false);
+          
+          const userKey = `${newUsername.trim()}_healthData`;
+          localStorage.setItem(userKey, JSON.stringify({ peptides: [], food: [], vitals: [] }));
+          setData({ peptides: [], food: [], vitals: [] });
+        }
+      };
+
+      const switchUser = (username) => {
+        setCurrentUser(username);
+        setShowUserSelect(false);
+        const userKey = `${username}_healthData`;
+        const saved = localStorage.getItem(userKey);
+        setData(saved ? JSON.parse(saved) : { peptides: [], food: [], vitals: [] });
+      };
+
+      const currentUserGradient = users.find(u => u.name === currentUser)?.gradient || userGradients[0];
+
+      // Vial-Based Calculation
+      const calculateDoseDetails = useMemo(() => {
+        if (!peptideForm.vialAmount || !peptideForm.reconVolume || !peptideForm.desiredDose) {
+          return null;
+        }
+
+        const vialAmount = parseFloat(peptideForm.vialAmount);
+        const reconVolume = parseFloat(peptideForm.reconVolume);
+        const desiredDose = parseFloat(peptideForm.desiredDose);
+
+        // Convert vial amount to mcg
+        let vialAmountMcg = vialAmount;
+        if (peptideForm.vialUnit === 'mg') {
+          vialAmountMcg = vialAmount * 1000;
+        }
+
+        // Convert desired dose to mcg
+        let desiredDoseMcg = desiredDose;
+        if (peptideForm.desiredDoseUnit === 'mg') {
+          desiredDoseMcg = desiredDose * 1000;
+        }
+
+        // Calculate concentration (mcg/ml)
+        const concentrationMcgPerMl = vialAmountMcg / reconVolume;
+
+        // Calculate volume needed (ml)
+        const volumeNeededMl = desiredDoseMcg / concentrationMcgPerMl;
+
+        // Calculate syringe units (assuming 50 unit syringe = 0.5ml)
+        // For 50-unit syringe: 50 units = 0.5ml, so multiply ml by 100
+        const syringeUnitsCalculated = volumeNeededMl * 100;
+
+        return {
+          vialAmountMcg,
+          vialAmountMg: vialAmountMcg / 1000,
+          concentrationMcgPerMl,
+          concentrationMgPerMl: concentrationMcgPerMl / 1000,
+          desiredDoseMcg,
+          desiredDoseMg: desiredDoseMcg / 1000,
+          volumeNeededMl,
+          syringeUnitsCalculated
+        };
+      }, [peptideForm.vialAmount, peptideForm.vialUnit, peptideForm.reconVolume, peptideForm.desiredDose, peptideForm.desiredDoseUnit]);
+
+      const addPeptide = () => {
+        if (peptideForm.name && calculateDoseDetails) {
+          const calc = calculateDoseDetails;
+          const syringeUnits = peptideForm.syringeUnits ? parseFloat(peptideForm.syringeUnits) : calc.syringeUnitsCalculated;
+          
+          const newPeptide = {
+            id: Date.now(),
+            date: selectedDate,
+            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            name: peptideForm.name,
+            vialAmount: parseFloat(peptideForm.vialAmount),
+            vialUnit: peptideForm.vialUnit,
+            reconVolume: parseFloat(peptideForm.reconVolume),
+            desiredDose: parseFloat(peptideForm.desiredDose),
+            desiredDoseUnit: peptideForm.desiredDoseUnit,
+            syringeUnits: syringeUnits,
+            // Calculated values
+            concentrationMcgPerMl: calc.concentrationMcgPerMl,
+            volumeNeededMl: calc.volumeNeededMl,
+            actualDoseMcg: calc.desiredDoseMcg,
+            frequency: peptideForm.frequency,
+            timing: peptideForm.timing,
+            status: 'pending',
+            takenAt: null
+          };
+          
+          setData(prev => ({
+            ...prev,
+            peptides: [...prev.peptides, newPeptide]
+          }));
+          
+          setPeptideForm({
+            name: '',
+            vialAmount: '',
+            vialUnit: 'mg',
+            reconVolume: '',
+            desiredDose: '',
+            desiredDoseUnit: 'mcg',
+            syringeUnits: '',
+            frequency: 'daily',
+            timing: 'morning'
+          });
+        }
+      };
+
+      const markPeptideStatus = (id, status) => {
+        setData(prev => ({
+          ...prev,
+          peptides: prev.peptides.map(p => 
+            p.id === id 
+              ? { 
+                  ...p, 
+                  status, 
+                  takenAt: status === 'taken' ? new Date().toISOString() : p.takenAt 
+                }
+              : p
+          )
+        }));
+      };
+
+      const addFood = () => {
+        if (foodForm.name && foodForm.calories) {
+          const newFood = {
+            id: Date.now(),
+            date: selectedDate,
+            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            ...foodForm,
+            calories: parseFloat(foodForm.calories),
+            protein: parseFloat(foodForm.protein) || 0,
+            carbs: parseFloat(foodForm.carbs) || 0,
+            fat: parseFloat(foodForm.fat) || 0
+          };
+          
+          setData(prev => ({
+            ...prev,
+            food: [...prev.food, newFood]
+          }));
+          
+          setFoodForm({
+            name: '',
+            calories: '',
+            protein: '',
+            carbs: '',
+            fat: ''
+          });
+          setSearchTerm('');
+        }
+      };
+
+      const addVitals = () => {
+        if (vitalsForm.systolic && vitalsForm.diastolic && vitalsForm.pulse) {
+          const newVitals = {
+            id: Date.now(),
+            date: selectedDate,
+            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            systolic: parseInt(vitalsForm.systolic),
+            diastolic: parseInt(vitalsForm.diastolic),
+            pulse: parseInt(vitalsForm.pulse)
+          };
+          
+          setData(prev => ({
+            ...prev,
+            vitals: [...prev.vitals, newVitals]
+          }));
+          
+          setVitalsForm({
+            systolic: '',
+            diastolic: '',
+            pulse: ''
+          });
+        }
+      };
+
+      const deleteItem = (type, id) => {
+        setData(prev => ({
+          ...prev,
+          [type]: prev[type].filter(item => item.id !== id)
+        }));
+      };
+
+      const filteredSuggestions = useMemo(() => {
+        if (!searchTerm) return [];
+        return foodDatabase.filter(food =>
+          food.name.toLowerCase().includes(searchTerm.toLowerCase())
+        ).slice(0, 5);
+      }, [searchTerm]);
+
+      const selectFood = (food) => {
+        setFoodForm({
+          name: food.name,
+          calories: food.calories.toString(),
+          protein: food.protein.toString(),
+          carbs: food.carbs.toString(),
+          fat: food.fat.toString()
+        });
+        setSearchTerm(food.name);
+        setShowSuggestions(false);
+      };
+
+      const todayEntry = useMemo(() => {
+        return {
+          peptides: data.peptides.filter(p => p.date === selectedDate),
+          food: data.food.filter(f => f.date === selectedDate),
+          vitals: data.vitals.filter(v => v.date === selectedDate)
+        };
+      }, [data, selectedDate]);
+
+      const dailyTotals = useMemo(() => {
+        const takenPeptides = todayEntry.peptides.filter(p => p.status === 'taken');
+        const peptideTotalMcg = takenPeptides.reduce((sum, p) => sum + p.actualDoseMcg, 0);
+        const calorieTotal = todayEntry.food.reduce((sum, f) => sum + f.calories, 0);
+        const proteinTotal = todayEntry.food.reduce((sum, f) => sum + f.protein, 0);
+        const carbsTotal = todayEntry.food.reduce((sum, f) => sum + f.carbs, 0);
+        const fatTotal = todayEntry.food.reduce((sum, f) => sum + f.fat, 0);
+        
+        const avgSystolic = todayEntry.vitals.length > 0
+          ? Math.round(todayEntry.vitals.reduce((sum, v) => sum + v.systolic, 0) / todayEntry.vitals.length)
+          : 0;
+        const avgDiastolic = todayEntry.vitals.length > 0
+          ? Math.round(todayEntry.vitals.reduce((sum, v) => sum + v.diastolic, 0) / todayEntry.vitals.length)
+          : 0;
+        const avgPulse = todayEntry.vitals.length > 0
+          ? Math.round(todayEntry.vitals.reduce((sum, v) => sum + v.pulse, 0) / todayEntry.vitals.length)
+          : 0;
+
+        return {
+          peptidesMcg: peptideTotalMcg,
+          peptidesMg: peptideTotalMcg / 1000,
+          peptidesTaken: takenPeptides.length,
+          peptidesTotal: todayEntry.peptides.length,
+          calories: calorieTotal,
+          protein: proteinTotal,
+          carbs: carbsTotal,
+          fat: fatTotal,
+          systolic: avgSystolic,
+          diastolic: avgDiastolic,
+          pulse: avgPulse
+        };
+      }, [todayEntry]);
+
+      const chartData = useMemo(() => {
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - (6 - i));
+          return d.toISOString().split('T')[0];
+        });
+
+        const caloriesByDay = last7Days.map(date => {
+          return data.food
+            .filter(f => f.date === date)
+            .reduce((sum, f) => sum + f.calories, 0);
+        });
+
+        return {
+          labels: last7Days.map(date => {
+            const d = new Date(date + 'T00:00:00');
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }),
+          datasets: [{
+            label: 'Calories',
+            data: caloriesByDay,
+            borderColor: 'rgb(79, 172, 254)',
+            backgroundColor: 'rgba(79, 172, 254, 0.1)',
+            tension: 0.4,
+            fill: true,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            pointBackgroundColor: 'rgb(79, 172, 254)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+          }]
+        };
+      }, [data.food]);
+
+      const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              font: {
+                size: 14,
+                weight: 'bold',
+                family: 'Inter'
+              },
+              color: 'rgb(55, 65, 81)',
+              padding: 15
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            titleFont: {
+              size: 14,
+              weight: 'bold'
+            },
+            bodyFont: {
+              size: 13
+            },
+            borderColor: 'rgba(79, 172, 254, 0.5)',
+            borderWidth: 1
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            },
+            ticks: {
+              font: {
+                size: 12,
+                weight: '600'
+              },
+              color: 'rgb(107, 114, 128)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              font: {
+                size: 12,
+                weight: '600'
+              },
+              color: 'rgb(107, 114, 128)'
+            }
+          }
+        }
+      };
+
+      if (showUserSelect) {
+        return (
+          <div style={{
+            minHeight: '100vh',
+            background: currentUserGradient,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '2rem'
+          }}>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.98)',
+              borderRadius: '2rem',
+              padding: '3rem',
+              maxWidth: '500px',
+              width: '100%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+            }} className="animate-fadeIn">
+              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <Users size={64} style={{ color: '#667eea', margin: '0 auto 1rem' }} />
+                <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#1f2937', marginBottom: '0.5rem' }}>
+                  Peptide Tracker
+                </h1>
+                <p style={{ color: '#6b7280', fontSize: '1rem' }}>Select or create a user profile</p>
+              </div>
+
+              {users.length > 0 && (
+                <div style={{ marginBottom: '2rem' }}>
+                  <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#6b7280', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Existing Users
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {users.map((user) => (
+                      <button
+                        key={user.name}
+                        onClick={() => switchUser(user.name)}
+                        style={{
+                          padding: '1rem 1.5rem',
+                          background: user.gradient,
+                          border: 'none',
+                          borderRadius: '1rem',
+                          color: 'white',
+                          fontSize: '1.125rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          transition: 'transform 0.2s, box-shadow 0.2s',
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 8px 12px rgba(0,0,0,0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                        }}
+                      >
+                        {user.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#6b7280', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Create New User
+                </h3>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <input
+                    type="text"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && createUser()}
+                    placeholder="Enter username"
+                    style={{
+                      flex: 1,
+                      padding: '1rem',
+                      border: '2px solid rgba(0,0,0,0.1)',
+                      borderRadius: '1rem',
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      outline: 'none',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(0,0,0,0.1)'}
+                  />
+                  <button
+                    onClick={createUser}
+                    style={{
+                      padding: '1rem 1.5rem',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      border: 'none',
+                      borderRadius: '1rem',
+                      color: 'white',
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  >
+                    <Plus size={20} />
+                    Create
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: currentUserGradient,
+          padding: '2rem'
+        }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            {/* Header */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.98)',
+              borderRadius: '1.5rem',
+              padding: '2rem',
+              marginBottom: '2rem',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+              border: '2px solid rgba(255, 255, 255, 0.5)'
+            }} className="animate-fadeIn">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h1 style={{ fontSize: '2.5rem', fontWeight: 900, color: '#1f2937', marginBottom: '0.5rem' }}>
+                    💉 Vial-Based Peptide Tracker
+                  </h1>
+                  <p style={{ color: '#6b7280', fontSize: '1.125rem', fontWeight: 600 }}>
+                    Welcome back, <span style={{ color: '#667eea', fontWeight: 800 }}>{currentUser}</span>!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowUserSelect(true)}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    border: 'none',
+                    borderRadius: '1rem',
+                    color: 'white',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <Users size={20} />
+                  Switch User
+                </button>
+              </div>
+
+              {/* Date Selector */}
+              <div style={{ marginTop: '1.5rem' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: '#374151'
+                }}>
+                  <Calendar size={24} style={{ color: '#667eea' }} />
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      border: '2px solid rgba(102, 126, 234, 0.3)',
+                      borderRadius: '0.75rem',
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      outline: 'none',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(102, 126, 234, 0.3)'}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Daily Summary */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '1rem',
+              marginBottom: '2rem'
+            }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)',
+                padding: '1.5rem',
+                borderRadius: '1.5rem',
+                color: 'white',
+                boxShadow: '0 10px 30px rgba(139, 92, 246, 0.3)',
+                border: '2px solid rgba(255, 255, 255, 0.3)'
+              }} className="animate-slideIn">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                  <Syringe size={28} />
+                  <h3 style={{ fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Peptides Taken</h3>
+                </div>
+                <p style={{ fontSize: '2.5rem', fontWeight: 900 }}>
+                  {dailyTotals.peptidesMg >= 1 
+                    ? `${dailyTotals.peptidesMg.toFixed(2)} mg`
+                    : `${dailyTotals.peptidesMcg.toFixed(0)} mcg`
+                  }
+                </p>
+                <p style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+                  {dailyTotals.peptidesTaken}/{dailyTotals.peptidesTotal} doses confirmed
+                </p>
+              </div>
+
+              <div style={{
+                background: 'linear-gradient(135deg, #f472b6 0%, #ec4899 100%)',
+                padding: '1.5rem',
+                borderRadius: '1.5rem',
+                color: 'white',
+                boxShadow: '0 10px 30px rgba(236, 72, 153, 0.3)',
+                border: '2px solid rgba(255, 255, 255, 0.3)'
+              }} className="animate-slideIn" style={{ animationDelay: '0.1s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                  <Droplet size={28} />
+                  <h3 style={{ fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Calories</h3>
+                </div>
+                <p style={{ fontSize: '2.5rem', fontWeight: 900 }}>{dailyTotals.calories}</p>
+                <p style={{ fontSize: '0.875rem', opacity: 0.9 }}>P: {dailyTotals.protein}g | C: {dailyTotals.carbs}g | F: {dailyTotals.fat}g</p>
+              </div>
+
+              <div style={{
+                background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                padding: '1.5rem',
+                borderRadius: '1.5rem',
+                color: 'white',
+                boxShadow: '0 10px 30px rgba(79, 172, 254, 0.3)',
+                border: '2px solid rgba(255, 255, 255, 0.3)'
+              }} className="animate-slideIn" style={{ animationDelay: '0.2s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                  <Activity size={28} />
+                  <h3 style={{ fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>BP Average</h3>
+                </div>
+                <p style={{ fontSize: '2.5rem', fontWeight: 900 }}>
+                  {dailyTotals.systolic > 0 ? `${dailyTotals.systolic}/${dailyTotals.diastolic}` : '--/--'}
+                </p>
+                <p style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+                  {dailyTotals.pulse > 0 ? `${dailyTotals.pulse} bpm` : '-- bpm'}
+                </p>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div style={{
+              display: 'flex',
+              gap: '1rem',
+              marginBottom: '2rem',
+              flexWrap: 'wrap'
+            }}>
+              {[
+                { id: 'peptides', label: '💉 Peptides', icon: Syringe },
+                { id: 'food', label: '🍽️ Food', icon: Droplet },
+                { id: 'vitals', label: '❤️ Vitals', icon: Heart },
+                { id: 'trends', label: '📊 Trends', icon: TrendingUp }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    flex: '1 1 200px',
+                    padding: '1rem 1.5rem',
+                    background: activeTab === tab.id 
+                      ? 'rgba(255, 255, 255, 0.98)' 
+                      : 'rgba(255, 255, 255, 0.7)',
+                    border: activeTab === tab.id 
+                      ? '3px solid rgba(102, 126, 234, 0.5)' 
+                      : '2px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '1rem',
+                    fontSize: '1.125rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                    color: '#1f2937',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: activeTab === tab.id 
+                      ? '0 8px 20px rgba(0,0,0,0.15)' 
+                      : '0 4px 10px rgba(0,0,0,0.05)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeTab !== tab.id) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.85)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeTab !== tab.id) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.7)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Content Area */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              borderRadius: '1.5rem',
+              padding: '2rem',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+              border: '2px solid rgba(255, 255, 255, 0.5)'
+            }}>
+              {activeTab === 'peptides' && (
+                <div>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <Beaker size={28} style={{ color: '#8b5cf6' }} />
+                    Vial-Based Peptide Dosing
+                  </h2>
+                  
+                  {/* Vial-Based Peptide Form */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(167, 139, 250, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
+                    padding: '1.5rem',
+                    borderRadius: '1.25rem',
+                    marginBottom: '2rem',
+                    border: '2px solid rgba(139, 92, 246, 0.2)'
+                  }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Peptide Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={peptideForm.name}
+                          onChange={(e) => setPeptideForm({...peptideForm, name: e.target.value})}
+                          placeholder="e.g., BPC-157, NAD+"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(139, 92, 246, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          <Beaker size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
+                          Vial Contents *
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <input
+                            type="number"
+                            step="any"
+                            value={peptideForm.vialAmount}
+                            onChange={(e) => setPeptideForm({...peptideForm, vialAmount: e.target.value})}
+                            placeholder="10"
+                            style={{
+                              flex: 2,
+                              padding: '0.75rem',
+                              border: '2px solid rgba(139, 92, 246, 0.3)',
+                              borderRadius: '0.75rem',
+                              fontSize: '1rem',
+                              fontWeight: 600,
+                              outline: 'none'
+                            }}
+                          />
+                          <select
+                            value={peptideForm.vialUnit}
+                            onChange={(e) => setPeptideForm({...peptideForm, vialUnit: e.target.value})}
+                            style={{
+                              flex: 1,
+                              padding: '0.75rem',
+                              border: '2px solid rgba(139, 92, 246, 0.3)',
+                              borderRadius: '0.75rem',
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                              outline: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="mg">mg</option>
+                            <option value="mcg">mcg</option>
+                          </select>
+                        </div>
+                        <p style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '0.25rem' }}>Total powder in vial</p>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Reconstitution Volume *
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={peptideForm.reconVolume}
+                            onChange={(e) => setPeptideForm({...peptideForm, reconVolume: e.target.value})}
+                            placeholder="2"
+                            style={{
+                              flex: 1,
+                              padding: '0.75rem',
+                              border: '2px solid rgba(139, 92, 246, 0.3)',
+                              borderRadius: '0.75rem',
+                              fontSize: '1rem',
+                              fontWeight: 600,
+                              outline: 'none'
+                            }}
+                          />
+                          <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#6b7280' }}>ml</span>
+                        </div>
+                        <p style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '0.25rem' }}>Bac water added</p>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Desired Dose *
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <input
+                            type="number"
+                            step="any"
+                            value={peptideForm.desiredDose}
+                            onChange={(e) => setPeptideForm({...peptideForm, desiredDose: e.target.value})}
+                            placeholder="700"
+                            style={{
+                              flex: 2,
+                              padding: '0.75rem',
+                              border: '2px solid rgba(139, 92, 246, 0.3)',
+                              borderRadius: '0.75rem',
+                              fontSize: '1rem',
+                              fontWeight: 600,
+                              outline: 'none'
+                            }}
+                          />
+                          <select
+                            value={peptideForm.desiredDoseUnit}
+                            onChange={(e) => setPeptideForm({...peptideForm, desiredDoseUnit: e.target.value})}
+                            style={{
+                              flex: 1,
+                              padding: '0.75rem',
+                              border: '2px solid rgba(139, 92, 246, 0.3)',
+                              borderRadius: '0.75rem',
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                              outline: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="mcg">mcg</option>
+                            <option value="mg">mg</option>
+                          </select>
+                        </div>
+                        <p style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '0.25rem' }}>Amount per dose</p>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          <Syringe size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
+                          Syringe Units (optional)
+                        </label>
+                        <input
+                          type="number"
+                          step="1"
+                          value={peptideForm.syringeUnits}
+                          onChange={(e) => setPeptideForm({...peptideForm, syringeUnits: e.target.value})}
+                          placeholder={calculateDoseDetails ? Math.round(calculateDoseDetails.syringeUnitsCalculated).toString() : "Auto"}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(139, 92, 246, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        />
+                        <p style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                          {calculateDoseDetails ? `Calculated: ${Math.round(calculateDoseDetails.syringeUnitsCalculated)} units` : 'Tick marks on syringe'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          <Repeat size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
+                          Frequency *
+                        </label>
+                        <select
+                          value={peptideForm.frequency}
+                          onChange={(e) => setPeptideForm({...peptideForm, frequency: e.target.value})}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(139, 92, 246, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="daily">Daily</option>
+                          <option value="twice-daily">Twice Daily</option>
+                          <option value="every-other-day">Every Other Day</option>
+                          <option value="3x-weekly">3x Weekly</option>
+                          <option value="2x-weekly">2x Weekly</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="as-needed">As Needed</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          <Clock size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
+                          Timing *
+                        </label>
+                        <select
+                          value={peptideForm.timing}
+                          onChange={(e) => setPeptideForm({...peptideForm, timing: e.target.value})}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(139, 92, 246, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="morning">Morning</option>
+                          <option value="afternoon">Afternoon</option>
+                          <option value="evening">Evening</option>
+                          <option value="bedtime">Bedtime</option>
+                          <option value="both">Both (AM/PM)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Calculation Display */}
+                    {calculateDoseDetails && (
+                      <div className="calc-display">
+                        <h4 style={{ fontSize: '0.875rem', fontWeight: 800, color: '#8b5cf6', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          📊 Dose Calculations
+                        </h4>
+                        
+                        <div className="calc-row">
+                          <span className="calc-label">Vial Contents:</span>
+                          <span className="calc-value">
+                            {calculateDoseDetails.vialAmountMg >= 1 
+                              ? `${calculateDoseDetails.vialAmountMg} mg`
+                              : `${calculateDoseDetails.vialAmountMcg} mcg`
+                            }
+                          </span>
+                        </div>
+
+                        <div className="calc-row">
+                          <span className="calc-label">Concentration:</span>
+                          <span className="calc-value">
+                            {calculateDoseDetails.concentrationMgPerMl >= 1
+                              ? `${calculateDoseDetails.concentrationMgPerMl.toFixed(2)} mg/ml`
+                              : `${calculateDoseDetails.concentrationMcgPerMl.toFixed(0)} mcg/ml`
+                            }
+                          </span>
+                        </div>
+
+                        <div className="calc-row">
+                          <span className="calc-label">Desired Dose:</span>
+                          <span className="calc-value">
+                            {calculateDoseDetails.desiredDoseMg >= 1
+                              ? `${calculateDoseDetails.desiredDoseMg} mg`
+                              : `${calculateDoseDetails.desiredDoseMcg} mcg`
+                            }
+                          </span>
+                        </div>
+
+                        <div className="calc-row">
+                          <span className="calc-label">Volume Needed:</span>
+                          <span className="calc-value">{calculateDoseDetails.volumeNeededMl.toFixed(3)} ml</span>
+                        </div>
+
+                        <div className="calc-row">
+                          <span className="calc-label">Syringe Units:</span>
+                          <span className="calc-value-large">
+                            {Math.round(calculateDoseDetails.syringeUnitsCalculated)} units
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={addPeptide}
+                      disabled={!peptideForm.name || !calculateDoseDetails}
+                      style={{
+                        width: '100%',
+                        padding: '1rem',
+                        marginTop: '1rem',
+                        background: peptideForm.name && calculateDoseDetails
+                          ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
+                          : 'rgba(156, 163, 175, 0.5)',
+                        border: 'none',
+                        borderRadius: '1rem',
+                        color: 'white',
+                        fontSize: '1.125rem',
+                        fontWeight: 800,
+                        cursor: peptideForm.name && calculateDoseDetails ? 'pointer' : 'not-allowed',
+                        transition: 'transform 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (peptideForm.name && calculateDoseDetails) {
+                          e.currentTarget.style.transform = 'scale(1.02)';
+                        }
+                      }}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      <Plus size={24} />
+                      Add Peptide Dose
+                    </button>
+                  </div>
+
+                  {/* Peptide List */}
+                  <div>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem', color: '#374151' }}>
+                      Today's Peptides ({todayEntry.peptides.length})
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {todayEntry.peptides.length === 0 ? (
+                        <p style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem', fontWeight: 600 }}>
+                          No peptides tracked for {selectedDate}
+                        </p>
+                      ) : (
+                        todayEntry.peptides.map(peptide => (
+                          <div key={peptide.id} style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            padding: '1.25rem',
+                            background: peptide.status === 'taken' 
+                              ? 'rgba(16, 185, 129, 0.05)' 
+                              : peptide.status === 'skipped'
+                              ? 'rgba(107, 114, 128, 0.05)'
+                              : 'rgba(255, 255, 255, 0.95)',
+                            borderRadius: '1rem',
+                            border: peptide.status === 'taken'
+                              ? '2px solid rgba(16, 185, 129, 0.3)'
+                              : peptide.status === 'skipped'
+                              ? '2px solid rgba(107, 114, 128, 0.3)'
+                              : '2px solid rgba(139, 92, 246, 0.2)',
+                            boxShadow: '0 2px 8px rgba(139, 92, 246, 0.1)'
+                          }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                                <h4 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#8b5cf6' }}>
+                                  {peptide.name}
+                                </h4>
+                                <span className={`timing-badge timing-${peptide.timing}`}>
+                                  {peptide.timing === 'morning' && '☀️ '}
+                                  {peptide.timing === 'evening' && '🌙 '}
+                                  {peptide.timing === 'both' && '☀️🌙 '}
+                                  {peptide.timing === 'afternoon' && '🌤️ '}
+                                  {peptide.timing === 'bedtime' && '😴 '}
+                                  {peptide.timing.toUpperCase()}
+                                </span>
+                                <span className="frequency-badge">
+                                  {peptide.frequency.replace('-', ' ').toUpperCase()}
+                                </span>
+                                <span className={`status-badge status-${peptide.status}`}>
+                                  {peptide.status === 'taken' && <><Check size={14} /> TAKEN</>}
+                                  {peptide.status === 'pending' && <><AlertCircle size={14} /> PENDING</>}
+                                  {peptide.status === 'skipped' && 'SKIPPED'}
+                                </span>
+                              </div>
+                              
+                              <div style={{ 
+                                background: 'rgba(139, 92, 246, 0.05)', 
+                                padding: '1rem', 
+                                borderRadius: '0.75rem',
+                                marginBottom: '0.75rem'
+                              }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
+                                  <div>
+                                    <p style={{ fontSize: '0.7rem', color: 'rgb(107 114 128)', fontWeight: 600, textTransform: 'uppercase' }}>Vial</p>
+                                    <p style={{ fontWeight: 800, fontSize: '1rem', color: '#374151' }}>
+                                      {peptide.vialAmount} {peptide.vialUnit}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p style={{ fontSize: '0.7rem', color: 'rgb(107 114 128)', fontWeight: 600, textTransform: 'uppercase' }}>Recon</p>
+                                    <p style={{ fontWeight: 800, fontSize: '1rem', color: '#374151' }}>
+                                      {peptide.reconVolume} ml
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p style={{ fontSize: '0.7rem', color: 'rgb(107 114 128)', fontWeight: 600, textTransform: 'uppercase' }}>Concentration</p>
+                                    <p style={{ fontWeight: 800, fontSize: '1rem', color: '#374151' }}>
+                                      {peptide.concentrationMcgPerMl >= 1000 
+                                        ? `${(peptide.concentrationMcgPerMl / 1000).toFixed(2)} mg/ml`
+                                        : `${peptide.concentrationMcgPerMl.toFixed(0)} mcg/ml`
+                                      }
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p style={{ fontSize: '0.7rem', color: 'rgb(107 114 128)', fontWeight: 600, textTransform: 'uppercase' }}>Dose</p>
+                                    <p style={{ fontWeight: 800, fontSize: '1.1rem', color: '#8b5cf6' }}>
+                                      {peptide.actualDoseMcg >= 1000 
+                                        ? `${(peptide.actualDoseMcg / 1000).toFixed(2)} mg`
+                                        : `${peptide.actualDoseMcg.toFixed(0)} mcg`
+                                      }
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p style={{ fontSize: '0.7rem', color: 'rgb(107 114 128)', fontWeight: 600, textTransform: 'uppercase' }}>Volume</p>
+                                    <p style={{ fontWeight: 800, fontSize: '1rem', color: '#374151' }}>
+                                      {peptide.volumeNeededMl.toFixed(3)} ml
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p style={{ fontSize: '0.7rem', color: 'rgb(107 114 128)', fontWeight: 600, textTransform: 'uppercase' }}>Syringe</p>
+                                    <p style={{ fontWeight: 800, fontSize: '1.1rem', color: '#8b5cf6' }}>
+                                      {Math.round(peptide.syringeUnits)} units
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                                {peptide.status === 'pending' && (
+                                  <>
+                                    <button
+                                      onClick={() => markPeptideStatus(peptide.id, 'taken')}
+                                      style={{
+                                        padding: '0.5rem 1rem',
+                                        background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                                        border: 'none',
+                                        borderRadius: '0.5rem',
+                                        color: 'white',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.25rem',
+                                        transition: 'transform 0.2s'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                    >
+                                      <Check size={16} />
+                                      Mark as Taken
+                                    </button>
+                                    <button
+                                      onClick={() => markPeptideStatus(peptide.id, 'skipped')}
+                                      style={{
+                                        padding: '0.5rem 1rem',
+                                        background: 'rgba(107, 114, 128, 0.2)',
+                                        border: '2px solid rgba(107, 114, 128, 0.3)',
+                                        borderRadius: '0.5rem',
+                                        color: 'rgb(107, 114, 128)',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        transition: 'transform 0.2s'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                    >
+                                      Skip
+                                    </button>
+                                  </>
+                                )}
+                                {peptide.status !== 'pending' && (
+                                  <button
+                                    onClick={() => markPeptideStatus(peptide.id, 'pending')}
+                                    style={{
+                                      padding: '0.5rem 1rem',
+                                      background: 'rgba(245, 158, 11, 0.2)',
+                                      border: '2px solid rgba(245, 158, 11, 0.3)',
+                                      borderRadius: '0.5rem',
+                                      color: 'rgb(245, 158, 11)',
+                                      fontSize: '0.875rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.25rem',
+                                      transition: 'transform 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                  >
+                                    <Edit size={14} />
+                                    Reset Status
+                                  </button>
+                                )}
+                              </div>
+                              
+                              <p style={{ fontSize: '0.875rem', color: 'rgb(107 114 128)' }}>
+                                Added: {peptide.time}
+                                {peptide.takenAt && ` • Taken: ${new Date(peptide.takenAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => deleteItem('peptides', peptide.id)}
+                              style={{
+                                padding: '0.75rem',
+                                background: 'rgba(220, 38, 38, 0.1)',
+                                border: '2px solid rgba(220, 38, 38, 0.3)',
+                                borderRadius: '0.75rem',
+                                cursor: 'pointer',
+                                color: 'rgb(220 38 38)',
+                                transition: 'transform 0.2s',
+                                marginLeft: '1rem'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Food Tab */}
+              {activeTab === 'food' && (
+                <div>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    🍽️ Food & Macronutrients
+                  </h2>
+                  
+                  {/* Food Entry Form */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(251, 146, 60, 0.1) 0%, rgba(249, 115, 22, 0.1) 100%)',
+                    padding: '1.5rem',
+                    borderRadius: '1.25rem',
+                    marginBottom: '2rem',
+                    border: '2px solid rgba(249, 115, 22, 0.2)'
+                  }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Food Item *
+                        </label>
+                        <input
+                          type="text"
+                          value={foodForm.name}
+                          onChange={(e) => setFoodForm({...foodForm, name: e.target.value})}
+                          placeholder="e.g., Chicken breast"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(249, 115, 22, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Calories *
+                        </label>
+                        <input
+                          type="number"
+                          value={foodForm.calories}
+                          onChange={(e) => setFoodForm({...foodForm, calories: e.target.value})}
+                          placeholder="200"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(249, 115, 22, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Protein (g)
+                        </label>
+                        <input
+                          type="number"
+                          value={foodForm.protein}
+                          onChange={(e) => setFoodForm({...foodForm, protein: e.target.value})}
+                          placeholder="30"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(249, 115, 22, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Carbs (g)
+                        </label>
+                        <input
+                          type="number"
+                          value={foodForm.carbs}
+                          onChange={(e) => setFoodForm({...foodForm, carbs: e.target.value})}
+                          placeholder="10"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(249, 115, 22, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Fat (g)
+                        </label>
+                        <input
+                          type="number"
+                          value={foodForm.fat}
+                          onChange={(e) => setFoodForm({...foodForm, fat: e.target.value})}
+                          placeholder="5"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(249, 115, 22, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={addFood}
+                      style={{
+                        width: '100%',
+                        padding: '1rem',
+                        background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '0.75rem',
+                        fontSize: '1rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        transition: 'transform 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      <Plus size={20} />
+                      Add Food Entry
+                    </button>
+                  </div>
+
+                  {/* Today's Food Entries */}
+                  <div>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>
+                      Today's Food ({todayEntry.food.length})
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {todayEntry.food.length === 0 ? (
+                        <p style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
+                          No food entries for {selectedDate}
+                        </p>
+                      ) : (
+                        todayEntry.food.map(food => (
+                          <div key={food.id} style={{
+                            background: 'white',
+                            padding: '1.5rem',
+                            borderRadius: '1rem',
+                            border: '2px solid rgba(249, 115, 22, 0.2)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <div style={{ flex: 1 }}>
+                              <h4 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+                                {food.name}
+                              </h4>
+                              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#f97316' }}>
+                                  {food.calories} cal
+                                </span>
+                                {food.protein > 0 && (
+                                  <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                    P: {food.protein}g
+                                  </span>
+                                )}
+                                {food.carbs > 0 && (
+                                  <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                    C: {food.carbs}g
+                                  </span>
+                                )}
+                                {food.fat > 0 && (
+                                  <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                    F: {food.fat}g
+                                  </span>
+                                )}
+                              </div>
+                              <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.5rem' }}>
+                                {food.time}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => deleteItem('food', food.id)}
+                              style={{
+                                padding: '0.75rem',
+                                background: 'rgba(220, 38, 38, 0.1)',
+                                border: '2px solid rgba(220, 38, 38, 0.3)',
+                                borderRadius: '0.75rem',
+                                cursor: 'pointer',
+                                color: 'rgb(220 38 38)',
+                                transition: 'transform 0.2s',
+                                marginLeft: '1rem'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Vitals Tab */}
+              {activeTab === 'vitals' && (
+                <div>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    ❤️ Blood Pressure & Heart Rate
+                  </h2>
+                  
+                  {/* Vitals Entry Form */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(219, 39, 119, 0.1) 100%)',
+                    padding: '1.5rem',
+                    borderRadius: '1.25rem',
+                    marginBottom: '2rem',
+                    border: '2px solid rgba(236, 72, 153, 0.2)'
+                  }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Systolic (Top Number) *
+                        </label>
+                        <input
+                          type="number"
+                          value={vitalsForm.systolic}
+                          onChange={(e) => setVitalsForm({...vitalsForm, systolic: e.target.value})}
+                          placeholder="120"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(236, 72, 153, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Diastolic (Bottom Number) *
+                        </label>
+                        <input
+                          type="number"
+                          value={vitalsForm.diastolic}
+                          onChange={(e) => setVitalsForm({...vitalsForm, diastolic: e.target.value})}
+                          placeholder="80"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(236, 72, 153, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                          Heart Rate (bpm)
+                        </label>
+                        <input
+                          type="number"
+                          value={vitalsForm.pulse}
+                          onChange={(e) => setVitalsForm({...vitalsForm, pulse: e.target.value})}
+                          placeholder="70"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '2px solid rgba(236, 72, 153, 0.3)',
+                            borderRadius: '0.75rem',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={addVitals}
+                      style={{
+                        width: '100%',
+                        padding: '1rem',
+                        background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '0.75rem',
+                        fontSize: '1rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        transition: 'transform 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      <Plus size={20} />
+                      Add Vitals Reading
+                    </button>
+                  </div>
+
+                  {/* Today's Vitals */}
+                  <div>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>
+                      Today's Readings ({todayEntry.vitals.length})
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {todayEntry.vitals.length === 0 ? (
+                        <p style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
+                          No vitals readings for {selectedDate}
+                        </p>
+                      ) : (
+                        todayEntry.vitals.map(vital => (
+                          <div key={vital.id} style={{
+                            background: 'white',
+                            padding: '1.5rem',
+                            borderRadius: '1rem',
+                            border: '2px solid rgba(236, 72, 153, 0.2)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                <div>
+                                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ec4899' }}>
+                                    {vital.systolic}/{vital.diastolic}
+                                  </span>
+                                  <span style={{ fontSize: '0.875rem', color: '#6b7280', marginLeft: '0.5rem' }}>
+                                    mmHg
+                                  </span>
+                                </div>
+                                {vital.pulse && (
+                                  <div>
+                                    <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#6b7280' }}>
+                                      {vital.pulse}
+                                    </span>
+                                    <span style={{ fontSize: '0.875rem', color: '#9ca3af', marginLeft: '0.25rem' }}>
+                                      bpm
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                                {vital.time}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => deleteItem('vitals', vital.id)}
+                              style={{
+                                padding: '0.75rem',
+                                background: 'rgba(220, 38, 38, 0.1)',
+                                border: '2px solid rgba(220, 38, 38, 0.3)',
+                                borderRadius: '0.75rem',
+                                cursor: 'pointer',
+                                color: 'rgb(220 38 38)',
+                                transition: 'transform 0.2s',
+                                marginLeft: '1rem'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'trends' && (
+                <div>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem' }}>📊 Trends</h2>
+                  <LineChart data={chartData} options={chartOptions} />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    
+    try {
+      root.render(<HealthTracker />);
+      console.log('Vial-Based Peptide Tracker loaded successfully');
+    } catch (error) {
+      console.error('Error rendering app:', error);
+      document.getElementById('root').innerHTML = `
+        <div style="padding: 2rem; max-width: 600px; margin: 2rem auto; background: white; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <h1 style="color: #dc2626; margin-bottom: 1rem;">Error Loading App</h1>
+          <p style="margin-bottom: 1rem;">There was an error loading the Peptide Tracker. Please check the browser console for details.</p>
+          <pre style="background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto;">${error.message}</pre>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

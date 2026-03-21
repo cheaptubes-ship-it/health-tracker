@@ -1,0 +1,124 @@
+Invalid config at /Users/mikefoley/.openclaw/openclaw.json:\n- channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+│
+◇  Config ───────────────────────────────────────────────────╮
+│                                                            │
+│  Config invalid; doctor will run with best-effort config.  │
+│                                                            │
+├────────────────────────────────────────────────────────────╯
+Config invalid
+File: ~/.openclaw/openclaw.json
+Problem:
+  - channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+
+Run: openclaw doctor --fix
+Invalid config at /Users/mikefoley/.openclaw/openclaw.json:\n- channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+OpenClaw status --all
+
+Overview
+┌─────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Item            │ Value                                                                                             │
+├─────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Version         │ 2026.1.30                                                                                         │
+│ OS              │ macos 15.6.1 (arm64)                                                                              │
+│ Node            │ 22.21.1                                                                                           │
+│ Config          │ ~/.openclaw/openclaw.json                                                                         │
+│ Dashboard       │ http://127.0.0.1:18789/                                                                           │
+│ Tailscale       │ off                                                                                               │
+│ Channel         │ stable (default)                                                                                  │
+│ Update          │ pnpm · npm update 2026.2.14                                                                       │
+│ Gateway         │ local · ws://127.0.0.1:18789 (local loopback) · unreachable (connect failed: connect              │
+│                 │ ECONNREFUSED 127.0.0.1:18789)                                                                     │
+│ Security        │ Run: openclaw security audit --deep                                                               │
+│ Gateway self    │ unknown                                                                                           │
+│ Gateway service │ LaunchAgent installed · loaded · stopped                                                          │
+│ Node service    │ LaunchAgent not installed                                                                         │
+│ Agents          │ 1 total · 0 bootstrapping · 1 active · 1 sessions                                                 │
+└─────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+Channels
+┌──────────┬─────────┬────────┬───────────────────────────────────────────────────────────────────────────────────────┐
+│ Channel  │ Enabled │ State  │ Detail                                                                                │
+├──────────┼─────────┼────────┼───────────────────────────────────────────────────────────────────────────────────────┤
+└──────────┴─────────┴────────┴───────────────────────────────────────────────────────────────────────────────────────┘
+
+Agents
+┌────────────┬───────────┬──────────┬──────────┬──────────────────────────────────────────────────────────────────────┐
+│ Agent      │ Bootstrap │ Sessions │ Active   │ Store                                                                │
+├────────────┼───────────┼──────────┼──────────┼──────────────────────────────────────────────────────────────────────┤
+│ main       │ OK        │        1 │ 1m ago   │ ~/.openclaw/agents/main/sessions/sessions.json                       │
+└────────────┴───────────┴──────────┴──────────┴──────────────────────────────────────────────────────────────────────┘
+
+Diagnosis (read-only)
+
+Gateway connection details:
+  Gateway target: ws://127.0.0.1:18789
+  Source: local loopback
+  Config: /Users/mikefoley/.openclaw/openclaw.json
+  Bind: loopback
+
+! Config: /Users/mikefoley/.openclaw/openclaw.json
+  - channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+✓ Restart sentinel: none
+
+Gateway last log line:
+  Run: openclaw doctor --fix
+✓ Port 18789
+! Tailscale: off · unknown
+  error: Error: spawn tailscale ENOENT
+✓ Skills: 7 eligible · 0 missing · /Users/mikefoley/.openclaw/workspace
+
+Gateway logs (tail, summarized): /Users/mikefoley/.openclaw/logs
+  # stderr: /Users/mikefoley/.openclaw/logs/gateway.err.log
+  29  node                                0x00000001047f228c _ZN2v88internal9Execution4CallEPNS0_7IsolateENS0_6HandleINS0_6ObjectEEES6_iPS6_ + 120
+  30  node                                0x00000001046a1878 _ZN2v88Function4CallENS_5LocalINS_7ContextEEENS1_INS_5ValueEEEiPS5_ + 524
+  31  node                                0x00000001043adaa4 _ZN4node21InternalCallbackScope5CloseEv + 536
+  32  node                                0x00000001043adce0 _ZN4node20InternalMakeCallbackEPNS_11EnvironmentEN2v85LocalINS2_6ObjectEEES5_NS3_INS2_8FunctionEEEiPNS3_INS2_5ValueEEENS_13async_contextES9_ + 464
+  33  node                                0x00000001043c09fc _ZN4node9AsyncWrap12MakeCallbackEN2v85LocalINS1_8FunctionEEEiPNS2_INS1_5ValueEEE + 256
+  34  node                                0x0000000104446788 _ZN4node10HandleWrap7OnCloseEP11uv_handle_s + 416
+  … 14 lines omitted …
+  Problem:
+    - channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+  Run: openclaw doctor --fix
+  Invalid config at /Users/mikefoley/.openclaw/openclaw.json:\n- channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+  Config invalid
+  File: ~/.openclaw/openclaw.json
+  Problem:
+    - channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+  Run: openclaw doctor --fix
+  Invalid config at /Users/mikefoley/.openclaw/openclaw.json:\n- channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+  Config invalid
+  File: ~/.openclaw/openclaw.json
+  Problem:
+    - channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+  Run: openclaw doctor --fix
+  # stdout: /Users/mikefoley/.openclaw/logs/gateway.log
+  [2K[1A[2K[G⏵ hf_ggml-o...8_0.gguf  100.0% (328.58MB/328.58MB)  4.56MB/s  |  0s left
+  [2K[1A[2K[G✔ hf_ggml-o...8_0.gguf downloaded 328.58MB in 1m
+  2026-02-15T18:56:00.426Z [ws] ⇄ res ✓ chat.send 130ms runId=046a40bd-a2ae-4e2b-a7aa-b0d724a6c4cb conn=6ac582ae…1c39 id=9e20cebf…6ff7
+  2026-02-15T18:57:05.267Z [ws] ⇄ res ✓ chat.history 52ms conn=6ac582ae…1c39 id=8add1f46…f926
+  2026-02-15T18:59:31.158Z [ws] ⇄ res ✓ chat.history 53ms conn=6ac582ae…1c39 id=3bdecd0d…bb8a
+  2026-02-15T19:02:33.645Z [ws] ⇄ res ✓ chat.history 54ms conn=6ac582ae…1c39 id=5cd8b059…5aea
+  … 18 lines omitted …
+  │  Config invalid; doctor will run with best-effort config.  │
+  │                                                            │
+  ├────────────────────────────────────────────────────────────╯
+  │
+  ◇  Config ───────────────────────────────────────────────────╮
+  │                                                            │
+  │  Config invalid; doctor will run with best-effort config.  │
+  │                                                            │
+  ├────────────────────────────────────────────────────────────╯
+  │
+  ◇  Config ───────────────────────────────────────────────────╮
+  │                                                            │
+  │  Config invalid; doctor will run with best-effort config.  │
+  │                                                            │
+  ├────────────────────────────────────────────────────────────╯
+! Channel issues skipped (gateway unreachable)
+
+Gateway health:
+  connect failed: connect ECONNREFUSED 127.0.0.1:18789
+
+Pasteable debug report. Auth tokens redacted.
+Troubleshooting: https://docs.openclaw.ai/troubleshooting
+

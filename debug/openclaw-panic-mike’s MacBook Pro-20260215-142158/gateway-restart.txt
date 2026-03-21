@@ -1,0 +1,14 @@
+Invalid config at /Users/mikefoley/.openclaw/openclaw.json:\n- channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+│
+◇  Config ───────────────────────────────────────────────────╮
+│                                                            │
+│  Config invalid; doctor will run with best-effort config.  │
+│                                                            │
+├────────────────────────────────────────────────────────────╯
+Config invalid
+File: ~/.openclaw/openclaw.json
+Problem:
+  - channels.telegram.streamMode: Invalid option: expected one of "off"|"partial"|"block"
+
+Run: openclaw doctor --fix
+Restarted LaunchAgent: gui/501/ai.openclaw.gateway
