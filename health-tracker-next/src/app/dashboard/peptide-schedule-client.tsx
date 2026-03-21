@@ -347,7 +347,7 @@ export function PeptideScheduleClient() {
               className="h-10 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100"
             >
               <option value="am">Morning (AM)</option>
-              <option value="pm">Evening (PM)</option>
+
               <option value="bedtime">Bedtime</option>
             </select>
           </label>
@@ -415,10 +415,10 @@ export function PeptideScheduleClient() {
               ))}
             </div>
 
-            {(['am', 'pm', 'bedtime'] as const).map((t) => (
+            {(['am', 'bedtime'] as const).map((t) => (
               <div key={t} className="grid grid-cols-[120px_repeat(7,1fr)] border-b border-slate-800">
                 <div className="p-2 text-sm font-medium text-slate-100">
-                  {t === 'am' ? 'Morning' : t === 'pm' ? 'Evening' : 'Bedtime'}
+                  {t === 'am' ? 'Morning' : 'Bedtime'}
                 </div>
                 {DOW.map((_, d) => (
                   <div key={d} className="p-2 text-xs text-slate-200">
@@ -497,6 +497,29 @@ export function PeptideScheduleClient() {
                       ) : null}
 
                       {it.note ? <span className="text-slate-400">{it.note}</span> : null}
+                      <button
+                        type="button"
+                        className="rounded-lg border border-red-700 bg-slate-950/10 px-3 py-1 text-xs text-red-400 hover:bg-red-900/40"
+                        onClick={async () => {
+                          try {
+                            setErr(null)
+                            setNotice(null)
+                            const res = await fetch('/api/peptides/schedule/delete', {
+                              method: 'POST',
+                              headers: { 'content-type': 'application/json' },
+                              body: JSON.stringify({ id: it.id }),
+                            })
+                            const json = await res.json().catch(() => null)
+                            if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to delete')
+                            setNotice('Deleted')
+                            await load()
+                          } catch (e) {
+                            setErr(e instanceof Error ? e.message : String(e))
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
 
