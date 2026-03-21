@@ -403,7 +403,7 @@ export function PeptideScheduleClient() {
       <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
         <div className="flex items-baseline justify-between">
           <h3 className="font-medium">Week view</h3>
-          <div className="text-xs text-slate-400">AM / PM / Bedtime</div>
+          <div className="text-xs text-slate-400">AM / Bedtime</div>
         </div>
 
         <div className="mt-3 overflow-auto rounded-lg border border-slate-800">
