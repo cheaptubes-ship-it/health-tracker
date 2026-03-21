@@ -18,3 +18,16 @@
   - Cardio (POST): https://health-tracker-next.vercel.app/api/shortcuts/cardio
   - Peptide reminder AM (GET text): https://health-tracker-next.vercel.app/api/peptides/reminder?timing=am&format=text&token=YOUR_TOKEN
   - Peptide reminder PM (GET text): https://health-tracker-next.vercel.app/api/peptides/reminder?timing=pm&format=text&token=YOUR_TOKEN
+
+## Key File Paths (IMPORTANT)
+
+All app source files live under `health-tracker-next/src/`. 
+NEVER edit files at the repo root or create duplicate component files.
+
+- Dashboard page: `health-tracker-next/src/app/dashboard/page.tsx`
+- Hydration component: `health-tracker-next/src/app/dashboard/hydration-client.tsx`
+- Food component: `health-tracker-next/src/app/dashboard/food-client.tsx`
+- Activity component: `health-tracker-next/src/app/dashboard/activity-client.tsx`
+- Fasting component: `health-tracker-next/src/app/dashboard/fasting-client.tsx`
+- API routes: `health-tracker-next/src/app/api/`
+- Middleware: `health-tracker-next/middleware.ts`
