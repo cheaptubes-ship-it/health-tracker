@@ -70,13 +70,26 @@ export async function POST(req: Request) {
 
     const off_cycle_start = status === 'off_cycle' ? new Date().toISOString().slice(0, 10) : null
 
-    const { error } = await supabase.from('peptide_cycle_status').upsert({
-      user_id: user.id,
-      status,
-      off_cycle_start,
-      off_cycle_end,
-      updated_at: new Date().toISOString(),
-    })
+    // Check if row exists
+    const { data: existing } = await supabase
+      .from('peptide_cycle_status')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    let error
+    if (existing) {
+      const { error: e } = await supabase
+        .from('peptide_cycle_status')
+        .update({ status, off_cycle_start, off_cycle_end, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+      error = e
+    } else {
+      const { error: e } = await supabase
+        .from('peptide_cycle_status')
+        .insert({ user_id: user.id, status, off_cycle_start, off_cycle_end, updated_at: new Date().toISOString() })
+      error = e
+    }
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
 
