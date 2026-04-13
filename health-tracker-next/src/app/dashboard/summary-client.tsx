@@ -53,7 +53,7 @@ export function SummaryClient({
       const res = await fetch('/api/insights/weight-loss', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ date: selectedDate, range: stats.range }),
+        body: JSON.stringify({ date: selectedDate }),
       })
       const json = await res.json().catch(() => null)
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to generate insight')
@@ -229,11 +229,11 @@ export function SummaryClient({
             {insightErr ? <div className="mt-2 text-xs text-red-400">{insightErr}</div> : null}
             {insight ? (
               <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/30 p-2 text-xs text-slate-200">
+                {typeof (insight as any)?.summary === 'string' ? (
+                  <div>{String((insight as any).summary)}</div>
+                ) : (
                   <div className="space-y-1">
                     {(insight as any)?.headline ? <div className="font-semibold">{String((insight as any).headline)}</div> : null}
-                    {typeof (insight as any)?.summary === 'string' ? (
-                      <div className="text-slate-300">{String((insight as any).summary)}</div>
-                    ) : null}
                     {Array.isArray((insight as any)?.what_helped) ? (
                       <div>
                         <div className="text-slate-400">What likely helped</div>
@@ -255,6 +255,7 @@ export function SummaryClient({
                       </div>
                     ) : null}
                   </div>
+                )}
               </div>
             ) : null}
           </div>
