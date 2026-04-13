@@ -53,7 +53,7 @@ export function SummaryClient({
       const res = await fetch('/api/insights/weight-loss', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ date: selectedDate }),
+        body: JSON.stringify({ date: selectedDate, range: stats.range }),
       })
       const json = await res.json().catch(() => null)
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to generate insight')

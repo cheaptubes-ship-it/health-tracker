@@ -50,8 +50,10 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}))
     const selectedDate = typeof body?.date === 'string' && body.date.trim() ? body.date.trim() : tzTodayYmd(timeZone)
+    const range = typeof body?.range === 'string' ? body.range : 'day'
+    const lookbackDays = range === 'week' ? 7 : range === 'month' ? 30 : range === 'year' ? 365 : 1
 
-    const start = addDaysYmd(selectedDate, -6)
+    const start = addDaysYmd(selectedDate, -(lookbackDays - 1))
     const end = selectedDate
 
     const [food, weights, steps] = await Promise.all([
@@ -109,8 +111,8 @@ export async function POST(req: Request) {
       date: selectedDate,
       weight_today: wToday,
       weight_prev_day: wPrev,
-      days: Array.from({ length: 7 }).map((_, i) => {
-        const d = addDaysYmd(selectedDate, -(6 - i))
+      days: Array.from({ length: lookbackDays }).map((_, i) => {
+        const d = addDaysYmd(selectedDate, -((lookbackDays - 1) - i))
         const m = foodByDay.get(d) ?? { calories: 0, p: 0, c: 0, f: 0 }
         const s = stepsByDay.get(d) ?? null
         return { date: d, calories: Math.round(m.calories), protein_g: Math.round(m.p), carbs_g: Math.round(m.c), fat_g: Math.round(m.f), steps: s }
@@ -120,7 +122,7 @@ export async function POST(req: Request) {
     const client = new OpenAI({ apiKey })
 
     const system =
-      'You are a pragmatic nutrition coach. Given 7 days of macros/steps and a weight change, explain what likely helped on the most recent weight-loss day. ' +
+      `You are a pragmatic nutrition coach. Given ${lookbackDays} day(s) of macros/steps and a weight change, explain what likely helped. ` +
       'Be specific but not overconfident. Focus on patterns: carbs/protein/fat distribution, calories, steps, sleep. ' +
       'Respond in json with these exact fields: ' +
       'headline (short punchy title), ' +
