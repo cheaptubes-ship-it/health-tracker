@@ -836,7 +836,7 @@ export default async function DashboardPage({
               {favorites && favorites.length ? (
                 <div className="space-y-2">
                   <div className="text-sm font-medium">Favorites</div>
-                  {favorites.length > 10 ? (
+                  {favorites.length > 20 ? (
                     <div className="flex flex-wrap items-end gap-2">
                       <p className="text-xs text-slate-400">Tip: use search, or pick a favorite below.</p>
                       <form action={addFoodFromFavorite} className="flex flex-wrap items-end gap-2">
