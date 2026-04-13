@@ -122,7 +122,11 @@ export async function POST(req: Request) {
     const system =
       'You are a pragmatic nutrition coach. Given 7 days of macros/steps and a weight change, explain what likely helped on the most recent weight-loss day. ' +
       'Be specific but not overconfident. Focus on patterns: carbs/protein/fat distribution, calories, steps, sleep. ' +
-      'Return concise advice that the user can repeat tomorrow. Respond in json format with a summary field.'
+      'Respond in json with these exact fields: ' +
+      'headline (short punchy title), ' +
+      'summary (2-3 sentence overview of the week), ' +
+      'what_helped (array of 3-4 specific factors that drove results), ' +
+      'keep_doing (array of 3-4 actionable habits to repeat tomorrow).'
 
     const res = await client.chat.completions.create({
       model: process.env.AI_INSIGHT_MODEL || 'gpt-4o-mini',
