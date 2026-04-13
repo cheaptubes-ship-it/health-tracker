@@ -814,6 +814,37 @@ export function TrainingClient({
                             + Add set
                           </button>
 
+                          <button
+                            type="button"
+                            className="w-fit rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+                            onClick={async () => {
+                              try {
+                                setErr(null)
+                                await Promise.all(
+                                  (ex.sets ?? []).map((setRow) =>
+                                    fetch('/api/training/workout/set/upsert', {
+                                      method: 'POST',
+                                      headers: { 'content-type': 'application/json' },
+                                      body: JSON.stringify({
+                                        workout_exercise_id: ex.id,
+                                        set_index: setRow.set_index,
+                                        weight: setRow.weight,
+                                        reps: setRow.reps,
+                                        rir: setRow.rir,
+                                        is_warmup: setRow.is_warmup,
+                                      }),
+                                    })
+                                  )
+                                )
+                                setNotice(`✓ ${ex.exercise_name} saved`)
+                              } catch (e2) {
+                                setErr(e2 instanceof Error ? e2.message : String(e2))
+                              }
+                            }}
+                          >
+                            ✓ Save sets
+                          </button>
+
                           <label className="mt-2 grid gap-1 text-xs text-slate-300">
                             Notes
                             <textarea
@@ -1119,6 +1150,37 @@ export function TrainingClient({
                       }}
                     >
                       + Add set
+                    </button>
+
+                    <button
+                      type="button"
+                      className="w-fit rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+                      onClick={async () => {
+                        try {
+                          setErr(null)
+                          await Promise.all(
+                            (ex.sets ?? []).map((s) =>
+                              fetch('/api/training/workout/set/upsert', {
+                                method: 'POST',
+                                headers: { 'content-type': 'application/json' },
+                                body: JSON.stringify({
+                                  workout_exercise_id: ex.id,
+                                  set_index: s.set_index,
+                                  weight: s.weight,
+                                  reps: s.reps,
+                                  rir: s.rir,
+                                  is_warmup: s.is_warmup,
+                                }),
+                              })
+                            )
+                          )
+                          setNotice(`✓ ${ex.exercise_name} saved`)
+                        } catch (e2) {
+                          setErr(e2 instanceof Error ? e2.message : String(e2))
+                        }
+                      }}
+                    >
+                      ✓ Save sets
                     </button>
                   </div>
 
