@@ -206,7 +206,7 @@ export async function POST(req: Request) {
       // ignore
     }
 
-    return NextResponse.json({ ok: true, timeZone, date: selectedDate, insight: parsed })
+    return NextResponse.json({ ok: true, timeZone, date: selectedDate, insight: parsed, debug_payload: payload })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 })
   }
