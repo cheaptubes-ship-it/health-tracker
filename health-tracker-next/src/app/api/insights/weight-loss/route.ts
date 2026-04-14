@@ -56,6 +56,10 @@ export async function POST(req: Request) {
     const start = addDaysYmd(selectedDate, -(lookbackDays - 1))
     const end = selectedDate
 
+    // Fetch vitals and hydration from one day earlier since yesterday's
+    // sodium/electrolytes affect today's BP and weight
+    const prevStart = addDaysYmd(start, -1)
+
     const [food, weights, steps, vitals, hydration] = await Promise.all([
       supabase
         .from('food_entries')
@@ -78,12 +82,12 @@ export async function POST(req: Request) {
       supabase
         .from('vitals_entries')
         .select('entry_date, systolic, diastolic, pulse')
-        .gte('entry_date', start)
+        .gte('entry_date', prevStart)
         .lte('entry_date', end),
       supabase
         .from('hydration_entries')
         .select('entry_date, sodium_mg, water_ml, potassium_mg, magnesium_mg')
-        .gte('entry_date', start)
+        .gte('entry_date', prevStart)
         .lte('entry_date', end),
     ])
 
@@ -137,11 +141,25 @@ export async function POST(req: Request) {
     const wToday = weightOnOrBefore(selectedDate)
     const wPrev = weightOnOrBefore(addDaysYmd(selectedDate, -1))
 
+    // Previous day context (sodium/electrolytes from yesterday affect today's BP)
+    const prevDay = addDaysYmd(selectedDate, -1)
+    const prevHydration = hydrationByDay.get(prevDay)
+    const prevVitals = vitalsByDay.get(prevDay)
+
     const payload = {
       date: selectedDate,
       range,
       weight_today: wToday,
       weight_prev_day: wPrev,
+      yesterday_context: {
+        date: prevDay,
+        sodium_mg: prevHydration ? Math.round(prevHydration.sodium_mg) : null,
+        water_ml: prevHydration ? Math.round(prevHydration.water_ml) : null,
+        potassium_mg: prevHydration ? Math.round(prevHydration.potassium_mg) : null,
+        magnesium_mg: prevHydration ? Math.round(prevHydration.magnesium_mg) : null,
+        systolic: prevVitals ? Math.round(prevVitals.systolic / prevVitals.n) : null,
+        diastolic: prevVitals ? Math.round(prevVitals.diastolic / prevVitals.n) : null,
+      },
       days: Array.from({ length: lookbackDays }).map((_, i) => {
         const d = addDaysYmd(selectedDate, -((lookbackDays - 1) - i))
         const m = foodByDay.get(d) ?? { calories: 0, p: 0, c: 0, f: 0 }
