@@ -38,6 +38,16 @@ export async function addWeight(formData: FormData) {
   revalidatePath('/dashboard')
 }
 
+export async function deleteWeight(formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  const id = String(formData.get('id') ?? '').trim()
+  if (!id) return
+  await supabase.from('weight_entries').delete().eq('id', id).eq('user_id', user.id)
+  revalidatePath('/dashboard')
+}
+
 export async function addFood(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const {

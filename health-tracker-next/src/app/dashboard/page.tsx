@@ -6,6 +6,7 @@ import {
   addVitals,
   deleteFood,
   deleteFavorite,
+  deleteWeight,
 } from './server-actions'
 import { FoodClient } from './food-client'
 import { SettingsClient } from './settings-client'
@@ -173,6 +174,12 @@ export default async function DashboardPage({
       .select('calories, protein_g, carbs_g, fat_g')
       .eq('entry_date', addDaysYmd(selectedDate, -1)),
   ])
+
+  const { data: todayWeights } = await supabase
+    .from('weight_entries')
+    .select('id, weight_lbs, created_at')
+    .eq('entry_date', selectedDate)
+    .order('created_at', { ascending: true })
 
   const shortcutsToken = shortcutsTokenRow?.token ?? null
 
@@ -1060,6 +1067,8 @@ export default async function DashboardPage({
               key={`${selectedDate}:${totals.lastWeight ?? 'none'}`}
               selectedDate={selectedDate}
               lastWeight={totals.lastWeight != null ? Number(totals.lastWeight) : null}
+              todayEntries={(todayWeights ?? []).map(r => ({ id: String(r.id), weight_lbs: Number(r.weight_lbs), created_at: String(r.created_at) }))}
+              deleteWeightAction={deleteWeight}
             />
           ) : tab === 'settings' ? (
             <SettingsClient
