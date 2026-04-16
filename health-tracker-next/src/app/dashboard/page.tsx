@@ -24,6 +24,7 @@ import { TrainingClient } from './training-client'
 import { ActivityClient } from './activity-client'
 import { SleepClient, type SleepEntry } from './sleep-client'
 import { FastingClient } from './fasting-client'
+import { WellnessClient } from './wellness-client'
 
 function formatDate(d: Date) {
   // Local calendar date (NOT UTC). Using toISOString() will flip the day early in US time zones.
@@ -579,6 +580,7 @@ export default async function DashboardPage({
     { id: 'peptides', label: 'Peptides' },
     { id: 'vitals', label: 'Vitals' },
     { id: 'weight', label: 'Weight' },
+    { id: 'wellness', label: '🧠 Wellness' },
     { id: 'settings', label: 'Settings' },
   ]
 
@@ -1041,6 +1043,14 @@ export default async function DashboardPage({
               </div>
 
               <PeptideList selectedDate={selectedDate} />
+            </div>
+          ) : tab === 'wellness' ? (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold">🧠 Wellness & Recovery</h2>
+                <p className="text-sm text-slate-300">Daily check-in — pain, cognitive, mood, sobriety support</p>
+              </div>
+              <WellnessClient selectedDate={selectedDate} />
             </div>
           ) : (
             <div className="space-y-2">
