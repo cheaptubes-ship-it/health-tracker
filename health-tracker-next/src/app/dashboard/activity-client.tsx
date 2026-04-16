@@ -95,6 +95,78 @@ export function ActivityClient({ selectedDate }: { selectedDate: string }) {
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+          <div className="text-sm font-semibold text-slate-100">Manual steps entry</div>
+          <form
+            className="mt-2 grid gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              setErr(null)
+              setNotice(null)
+              try {
+                const fd = new FormData(e.currentTarget)
+                const res = await fetch('/api/activity', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({
+                    entry_date: selectedDate,
+                    steps: fd.get('steps'),
+                    distance_m: fd.get('distance_m') || null,
+                    active_kcal: fd.get('active_kcal') || null,
+                  }),
+                })
+                const json = await res.json().catch(() => null)
+                if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to save steps')
+                setNotice('Steps saved')
+                ;(e.currentTarget as HTMLFormElement).reset()
+                await load()
+              } catch (e2) {
+                setErr(e2 instanceof Error ? e2.message : String(e2))
+              }
+            }}
+          >
+            <div className="grid gap-2 sm:grid-cols-3">
+              <label className="grid gap-1 text-sm text-slate-200">
+                Steps
+                <input
+                  name="steps"
+                  type="number"
+                  step="1"
+                  min={0}
+                  required
+                  placeholder="e.g. 8000"
+                  className="h-10 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </label>
+              <label className="grid gap-1 text-sm text-slate-200">
+                Distance (m)
+                <input
+                  name="distance_m"
+                  type="number"
+                  step="1"
+                  min={0}
+                  placeholder="optional"
+                  className="h-10 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </label>
+              <label className="grid gap-1 text-sm text-slate-200">
+                Active kcal
+                <input
+                  name="active_kcal"
+                  type="number"
+                  step="1"
+                  min={0}
+                  placeholder="optional"
+                  className="h-10 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </label>
+            </div>
+            <button className="w-fit rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400">
+              Save steps
+            </button>
+          </form>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
           <div className="text-sm font-semibold text-slate-100">Manual cardio (quick add)</div>
           <form
             className="mt-2 grid gap-2"

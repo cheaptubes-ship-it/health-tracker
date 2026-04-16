@@ -76,7 +76,7 @@ export function HydrationClient({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Hydration</h2>
-          <p className="text-sm text-slate-300">Track water + electrolytes (LMNT/Propel).</p>
+          <p className="text-sm text-slate-300">Track water + electrolytes (LMNT/Propel/Emergen-C/Calm).</p>
         </div>
       </div>
 
@@ -209,6 +209,44 @@ export function HydrationClient({
               }
             >
               + Propel
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-orange-700 bg-orange-950/30 px-3 py-2 text-sm font-medium text-orange-200 hover:bg-orange-900/40"
+              onClick={() =>
+                void add({
+                  name: 'Emergen-C (1000mg vitamin C)',
+                  servings: '1',
+                  water_ml: 0,
+                  sodium_mg: 0,
+                  potassium_mg: 0,
+                  magnesium_mg: 0,
+                  caffeine_mg: 0,
+                  sugar_g: 3.9,
+                  lemon_juice: false,
+                })
+              }
+            >
+              + Emergen-C
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-purple-700 bg-purple-950/30 px-3 py-2 text-sm font-medium text-purple-200 hover:bg-purple-900/40"
+              onClick={() =>
+                void add({
+                  name: 'Calm (325mg magnesium)',
+                  servings: '1',
+                  water_ml: 0,
+                  sodium_mg: 0,
+                  potassium_mg: 0,
+                  magnesium_mg: 325,
+                  caffeine_mg: 0,
+                  sugar_g: 0,
+                  lemon_juice: false,
+                })
+              }
+            >
+              + Calm
             </button>
           </div>
         </div>

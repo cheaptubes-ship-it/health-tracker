@@ -7,12 +7,20 @@ function round1(n: number) {
   return Math.round(n * 10) / 10
 }
 
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
 export function WeightClient({
   selectedDate,
   lastWeight,
+  todayEntries = [],
+  deleteWeightAction,
 }: {
   selectedDate: string
   lastWeight: number | null
+  todayEntries?: Array<{ id: string; weight_lbs: number; created_at: string }>
+  deleteWeightAction?: (formData: FormData) => Promise<void>
 }) {
   const formRef = useRef<HTMLFormElement | null>(null)
   const base = useMemo(() => (lastWeight == null ? null : round1(Number(lastWeight))), [lastWeight])
@@ -31,7 +39,6 @@ export function WeightClient({
 
   function submitWithValue(next: number) {
     setWeight(String(next))
-    // Let state flush then submit.
     startTransition(() => {
       queueMicrotask(() => formRef.current?.requestSubmit())
     })
@@ -89,7 +96,6 @@ export function WeightClient({
 
         <div className="grid gap-2">
           <div className="text-xs text-slate-400">Quick adjust</div>
-
           <div className="grid gap-2">
             <div className="flex flex-wrap gap-2">
               {deltas.map((d) => (
@@ -104,7 +110,6 @@ export function WeightClient({
                 </button>
               ))}
             </div>
-
             <div className="flex flex-wrap gap-2">
               {deltas.map((d) => (
                 <button
@@ -121,6 +126,33 @@ export function WeightClient({
           </div>
         </div>
       </form>
+
+      {todayEntries.length > 0 ? (
+        <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+          <h3 className="font-medium">Today's entries ({todayEntries.length})</h3>
+          <ul className="mt-3 divide-y divide-slate-800">
+            {todayEntries.map((e) => (
+              <li key={e.id} className="flex items-center justify-between py-2">
+                <div className="text-sm text-slate-100">
+                  {round1(e.weight_lbs)} lb
+                  <span className="ml-2 text-xs text-slate-400">{fmtTime(e.created_at)}</span>
+                </div>
+                {deleteWeightAction ? (
+                  <form action={deleteWeightAction}>
+                    <input type="hidden" name="id" value={e.id} />
+                    <button
+                      type="submit"
+                      className="rounded-lg border border-slate-700 bg-slate-950/30 px-2 py-1 text-xs text-slate-300 hover:bg-red-900/40 hover:text-red-300"
+                    >
+                      Delete
+                    </button>
+                  </form>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   )
 }

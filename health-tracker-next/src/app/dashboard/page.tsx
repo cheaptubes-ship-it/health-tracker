@@ -6,6 +6,7 @@ import {
   addVitals,
   deleteFood,
   deleteFavorite,
+  deleteWeight,
 } from './server-actions'
 import { FoodClient } from './food-client'
 import { SettingsClient } from './settings-client'
@@ -53,9 +54,9 @@ export const revalidate = 0
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; date?: string; range?: SummaryRange }>
+  searchParams: Promise<{ tab?: string; date?: string; range?: SummaryRange; days?: string }>
 }) {
-  const { tab = 'food', date, range } = await searchParams
+  const { tab = 'food', date, range, days: daysParam } = await searchParams
   // If the user didn't explicitly pick a date, keep the URL clean and always default to "today".
   // This avoids getting "stuck" on yesterday when you revisit /dashboard or switch tabs.
   const hasExplicitDate = typeof date === 'string' && date.trim().length > 0
@@ -174,6 +175,12 @@ export default async function DashboardPage({
       .select('calories, protein_g, carbs_g, fat_g')
       .eq('entry_date', addDaysYmd(selectedDate, -1)),
   ])
+
+  const { data: todayWeights } = await supabase
+    .from('weight_entries')
+    .select('id, weight_lbs, created_at')
+    .eq('entry_date', selectedDate)
+    .order('created_at', { ascending: true })
 
   const shortcutsToken = shortcutsTokenRow?.token ?? null
 
@@ -428,7 +435,7 @@ export default async function DashboardPage({
   }
 
   // Trends (last 30 days)
-  const days = 30
+  const days = daysParam === '90' ? 90 : 30
   const today = new Date(selectedDate + 'T00:00:00')
   const dayKeys: string[] = []
   for (let i = days - 1; i >= 0; i--) {
@@ -437,7 +444,7 @@ export default async function DashboardPage({
     dayKeys.push(formatDate(d))
   }
 
-  const [food30, vitals30, peptides30, weight30] = await Promise.all([
+  const [food30, vitals30, peptides30, weight30, fasting90, carbsBP90] = await Promise.all([
     supabase
       .from('food_entries')
       .select('entry_date, calories, protein_g, carbs_g, fat_g')
@@ -460,6 +467,21 @@ export default async function DashboardPage({
       .gte('entry_date', dayKeys[0])
       .lte('entry_date', dayKeys[dayKeys.length - 1])
       .order('created_at', { ascending: true }),
+    // Fasting windows for analysis
+    supabase
+      .from('fasting_windows')
+      .select('entry_date, fast_start_at, fast_end_at')
+      .eq('user_id', user.id)
+      .gte('entry_date', dayKeys[0])
+      .lte('entry_date', dayKeys[dayKeys.length - 1])
+      .not('fast_end_at', 'is', null),
+    // Food for carbs/protein vs next-day BP correlation
+    supabase
+      .from('food_entries')
+      .select('entry_date, carbs_g, protein_g')
+      .eq('user_id', user.id)
+      .gte('entry_date', dayKeys[0])
+      .lte('entry_date', dayKeys[dayKeys.length - 1]),
   ])
 
   const caloriesByDay = new Map<string, number>()
@@ -569,6 +591,96 @@ export default async function DashboardPage({
     }
   })
 
+  // --- ANALYTICS COMPUTATIONS ---
+
+  // 1. Rolling 7-day average weight + stall detection
+  const weightEntries = (weight30.data ?? []).map(r => ({
+    date: r.entry_date,
+    weight: Number(r.weight_lbs),
+  })).sort((a, b) => a.date.localeCompare(b.date))
+
+  const rollingAvgPoints = dayKeys.map((k, i) => {
+    const window = weightEntries.filter(e => {
+      const diff = (new Date(k).getTime() - new Date(e.date).getTime()) / 86400000
+      return diff >= 0 && diff < 7
+    })
+    if (!window.length) return { date: k.slice(5), avg: null }
+    const avg = window.reduce((s, e) => s + e.weight, 0) / window.length
+    return { date: k.slice(5), avg: Math.round(avg * 10) / 10 }
+  })
+
+  // Slope over last 7 days (lbs/week)
+  const recentWeights = weightEntries.slice(-7)
+  let weeklySlope: number | null = null
+  if (recentWeights.length >= 3) {
+    const first = recentWeights[0].weight
+    const last = recentWeights[recentWeights.length - 1].weight
+    const days = recentWeights.length - 1
+    weeklySlope = Math.round(((first - last) / days * 7) * 10) / 10
+  }
+  const isStalling = weeklySlope !== null && weeklySlope < 0.5
+  const lossZone = weeklySlope !== null
+    ? weeklySlope >= 3 ? 'high'
+    : weeklySlope >= 1.5 ? 'good'
+    : weeklySlope >= 0.5 ? 'slow'
+    : 'stall'
+    : null
+
+  // 2. Peptide start dates
+  const peptideStarts = [
+    { name: 'BPC-157',   start: '2026-02-14', color: '#a78bfa' },
+    { name: 'CJC/IPA',   start: '2026-02-16', color: '#38bdf8' },
+    { name: 'NAD+',      start: '2026-02-16', color: '#34d399' },
+    { name: 'TB-500',    start: '2026-02-16', color: '#fbbf24' },
+    { name: 'TA-1',      start: '2026-02-17', color: '#f472b6' },
+  ]
+
+  // 3. Carbs + protein vs next-day BP correlation
+  const foodByDayCorr = new Map<string, { carbs: number; protein: number }>()
+  for (const r of carbsBP90.data ?? []) {
+    const cur = foodByDayCorr.get(r.entry_date) ?? { carbs: 0, protein: 0 }
+    cur.carbs += Number(r.carbs_g ?? 0)
+    cur.protein += Number(r.protein_g ?? 0)
+    foodByDayCorr.set(r.entry_date, cur)
+  }
+
+  const carbsBPPoints = (vitals30.data ?? []).map(v => {
+    const prevDay = new Date(v.entry_date + 'T00:00:00')
+    prevDay.setDate(prevDay.getDate() - 1)
+    const prevKey = formatDate(prevDay)
+    const food = foodByDayCorr.get(prevKey)
+    if (!food) return null
+    return {
+      date: v.entry_date,
+      carbs: Math.round(food.carbs),
+      protein: Math.round(food.protein),
+      systolic: v.systolic,
+    }
+  }).filter((x): x is { date: string; carbs: number; protein: number; systolic: number } => x !== null)
+
+  // 4. Fasting duration vs next-morning weight change
+  const fastingWeightPoints = (fasting90.data ?? []).map(f => {
+    if (!f.fast_start_at || !f.fast_end_at) return null
+    const hours = Math.round(
+      (new Date(f.fast_end_at).getTime() - new Date(f.fast_start_at).getTime())
+      / 3600000 * 10
+    ) / 10
+    if (hours < 4) return null
+    const weightDay = weightByDay.get(f.entry_date)
+    const nextDay = new Date(f.entry_date + 'T00:00:00')
+    nextDay.setDate(nextDay.getDate() + 1)
+    const nextKey = formatDate(nextDay)
+    const weightNext = weightByDay.get(nextKey)
+    if (!weightDay || !weightNext) return null
+    return {
+      date: f.entry_date,
+      hours,
+      drop: Math.round((weightDay - weightNext) * 10) / 10,
+    }
+  }).filter((x): x is { date: string; hours: number; drop: number } => x !== null)
+
+  // --- END ANALYTICS ---
+
   const tabs: Array<{ id: string; label: string }> = [
     { id: 'summary', label: 'Summary' },
     { id: 'trends', label: 'Trends' },
@@ -669,7 +781,7 @@ export default async function DashboardPage({
             <Link
               key={t.id}
               href={
-                hasExplicitDate
+                hasExplicitDate && selectedDate !== formatDateInTz(timezone)
                   ? `/dashboard?tab=${t.id}&date=${selectedDate}`
                   : `/dashboard?tab=${t.id}`
               }
@@ -957,6 +1069,8 @@ export default async function DashboardPage({
               key={`${selectedDate}:${totals.lastWeight ?? 'none'}`}
               selectedDate={selectedDate}
               lastWeight={totals.lastWeight != null ? Number(totals.lastWeight) : null}
+              todayEntries={(todayWeights ?? []).map(r => ({ id: String(r.id), weight_lbs: Number(r.weight_lbs), created_at: String(r.created_at) }))}
+              deleteWeightAction={deleteWeight}
             />
           ) : tab === 'settings' ? (
             <SettingsClient
@@ -1019,8 +1133,37 @@ export default async function DashboardPage({
             <SleepClient selectedDate={selectedDate} timeZone={timezone} entries={(sleep ?? []) as SleepEntry[]} />
           ) : tab === 'trends' ? (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Trends (last 30 days)</h2>
-              <TrendsClient points={trendsPoints} peptideSeries={peptideSeries} />
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">
+                  Trends ({days} days)
+                </h2>
+                <div className="flex gap-2">
+                  <a
+                    href={`/dashboard?tab=trends${hasExplicitDate ? `&date=${selectedDate}` : ''}`}
+                    className={`rounded-lg px-3 py-1.5 text-sm ${days === 30 ? 'bg-indigo-500 text-white' : 'border border-slate-700 text-slate-100 hover:bg-slate-900/40'}`}
+                  >
+                    30d
+                  </a>
+                  <a
+                    href={`/dashboard?tab=trends&days=90${hasExplicitDate ? `&date=${selectedDate}` : ''}`}
+                    className={`rounded-lg px-3 py-1.5 text-sm ${days === 90 ? 'bg-indigo-500 text-white' : 'border border-slate-700 text-slate-100 hover:bg-slate-900/40'}`}
+                  >
+                    90d
+                  </a>
+                </div>
+              </div>
+              <TrendsClient
+                points={trendsPoints}
+                peptideSeries={peptideSeries}
+                rollingAvg={rollingAvgPoints}
+                weeklySlope={weeklySlope}
+                isStalling={isStalling}
+                lossZone={lossZone}
+                peptideStarts={peptideStarts}
+                carbsBPPoints={carbsBPPoints}
+                fastingWeightPoints={fastingWeightPoints}
+                days={days}
+              />
             </div>
           ) : tab === 'peptides' ? (
             <div className="space-y-4">
