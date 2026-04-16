@@ -70,7 +70,7 @@ function Slider({ label, value, onChange, hint, inverted }: SliderProps) {
 
 const empty: WellnessEntry = {
   pain_overall: null, pain_back: null, pain_feet: null, pain_joints: null,
-  mobility_score: null, steps_walked: null, exercise_minutes: null,
+  mobility_score: null, exercise_minutes: null,
   brain_fog: null, cognitive_clarity: null, memory_score: null,
   word_retrieval: null, focus_duration_minutes: null,
   headache: false, headache_severity: null,
