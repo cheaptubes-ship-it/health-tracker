@@ -8,7 +8,6 @@ type WellnessEntry = {
   pain_feet: number | null
   pain_joints: number | null
   mobility_score: number | null
-  steps_walked: number | null
   exercise_minutes: number | null
   brain_fog: number | null
   cognitive_clarity: number | null
@@ -161,14 +160,7 @@ export function WellnessClient({ selectedDate }: { selectedDate: string }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Slider label="Mobility score" value={entry.mobility_score}
             onChange={v => set('mobility_score', v)} />
-          <div className="grid gap-1">
-            <label className="text-sm text-slate-200">Steps walked</label>
-            <input type="number"
-              value={entry.steps_walked ?? ''}
-              onChange={e => set('steps_walked', e.target.value ? Number(e.target.value) : null)}
-              className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-100"
-              placeholder="e.g. 3000" />
-          </div>
+
           <div className="grid gap-1">
             <label className="text-sm text-slate-200">Exercise minutes</label>
             <input type="number"

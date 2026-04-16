@@ -71,7 +71,6 @@ export async function POST(req: Request) {
       pain_feet: n(body.pain_feet),
       pain_joints: n(body.pain_joints),
       mobility_score: n(body.mobility_score),
-      steps_walked: n(body.steps_walked),
       exercise_minutes: n(body.exercise_minutes),
       brain_fog: n(body.brain_fog),
       cognitive_clarity: n(body.cognitive_clarity),
