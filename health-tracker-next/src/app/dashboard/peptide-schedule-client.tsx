@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { peptideKey } from './peptides-utils'
 
 type Item = {
@@ -33,6 +34,7 @@ function dowLabel(days: number[]) {
 }
 
 export function PeptideScheduleClient() {
+  const router = useRouter()
   const [items, setItems] = useState<Item[]>([])
   const [profilesByKey, setProfilesByKey] = useState<Record<string, Profile>>({})
   const [busy, setBusy] = useState(false)
@@ -55,6 +57,10 @@ export function PeptideScheduleClient() {
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6])
   const [active, setActive] = useState(true)
   const [note, setNote] = useState('')
+
+  // Edit / delete state for existing items
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const canSave = useMemo(() => peptideKey(name).length > 0, [name])
 
@@ -85,11 +91,13 @@ export function PeptideScheduleClient() {
       bedtime: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] },
     }
     for (const it of items) {
+      // Paused items stay in the editable list below but are left off the week view.
+      if (!it.active) continue
       const labelName = it.display_name ?? it.normalized_name
       const dose = it.dose_value != null ? `${it.dose_value}${it.dose_unit}` : ''
       const mcg = approxMcg(it)
       const mcgLabel = mcg != null ? ` ≈ ${Math.round(mcg)}mcg` : ''
-      const label = `${labelName}${dose ? ` (${dose}${mcgLabel})` : ''}${it.active ? '' : ' [paused]'}`
+      const label = `${labelName}${dose ? ` (${dose}${mcgLabel})` : ''}`
       const ds = Array.isArray(it.days_of_week) ? it.days_of_week : []
       for (const d of ds) {
         if (buckets[it.timing]?.[d]) buckets[it.timing][d].push(label)
@@ -187,6 +195,7 @@ export function PeptideScheduleClient() {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
+          ...(editingId ? { id: editingId } : {}),
           display_name: name,
           dose_value: doseValue ? Number(doseValue) : null,
           dose_unit: doseUnit,
@@ -198,18 +207,65 @@ export function PeptideScheduleClient() {
       })
       const json = await res.json().catch(() => null)
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
-      setNotice('Saved')
-      setName('')
-      setDoseValue('')
-      setDoseUnit('u')
-      setTiming('am')
-      setDays([0, 1, 2, 3, 4, 5, 6])
-      setActive(true)
-      setNote('')
+      setNotice(editingId ? 'Changes saved' : 'Saved')
+      resetForm()
       await load()
+      // Quick log below is rendered from server data; refresh it in the background.
+      router.refresh()
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
     } finally {
+      setBusy(false)
+    }
+  }
+
+  function resetForm() {
+    setEditingId(null)
+    setName('')
+    setDoseValue('')
+    setDoseUnit('u')
+    setTiming('am')
+    setDays([0, 1, 2, 3, 4, 5, 6])
+    setActive(true)
+    setNote('')
+  }
+
+  function startEdit(it: Item) {
+    setErr(null)
+    setNotice(null)
+    setConfirmDeleteId(null)
+    setEditingId(it.id)
+    setName(it.display_name ?? '')
+    setDoseValue(it.dose_value != null ? String(it.dose_value) : '')
+    setDoseUnit(it.dose_unit === 'mcg' || it.dose_unit === 'mg' ? it.dose_unit : 'u')
+    setTiming(it.timing)
+    setDays(Array.isArray(it.days_of_week) ? it.days_of_week : [0, 1, 2, 3, 4, 5, 6])
+    setActive(it.active)
+    setNote(it.note ?? '')
+    document.getElementById('peptide-schedule-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  async function removeItem(id: string) {
+    setBusy(true)
+    setErr(null)
+    setNotice(null)
+    try {
+      const res = await fetch('/api/peptides/schedule/delete', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to delete')
+      // Only remove from the list once the server confirms.
+      setItems((prev) => prev.filter((x) => x.id !== id))
+      if (editingId === id) resetForm()
+      setNotice('Deleted')
+      router.refresh()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setConfirmDeleteId(null)
       setBusy(false)
     }
   }
@@ -270,7 +326,7 @@ export function PeptideScheduleClient() {
       <div className={`${onCycle ? '' : 'opacity-40 pointer-events-none'} space-y-4`}>
 
         {/* Schedule header + seed buttons */}
-        <div className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+        <div id="peptide-schedule-form" className="rounded-xl border border-slate-800 bg-slate-950/20 p-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="text-sm font-medium">Schedule</div>
@@ -448,14 +504,29 @@ export function PeptideScheduleClient() {
               />
             </label>
 
-            <button
-              type="button"
-              disabled={busy || !canSave}
-              onClick={() => void save()}
-              className="w-fit rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-50"
-            >
-              Add schedule item
-            </button>
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+              <button
+                type="button"
+                disabled={busy || !canSave}
+                onClick={() => void save()}
+                className="w-fit rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-50"
+              >
+                {editingId ? 'Save changes' : 'Add schedule item'}
+              </button>
+              {editingId ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => resetForm()}
+                    className="w-fit rounded-lg border border-slate-700 bg-slate-950/10 px-3 py-2 text-sm text-slate-200 hover:bg-slate-900 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <span className="text-xs text-amber-300">Editing an existing item</span>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -555,6 +626,7 @@ export function PeptideScheduleClient() {
                         {it.note ? <span className="text-slate-400">{it.note}</span> : null}
                       </div>
                     </div>
+                    <div className="flex flex-wrap items-center gap-2">
                     <label className="flex items-center gap-2 text-sm text-slate-200">
                       <input
                         type="checkbox"
@@ -586,6 +658,44 @@ export function PeptideScheduleClient() {
                       />
                       Active
                     </label>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="rounded-lg border border-slate-700 bg-slate-950/10 px-2 py-1 text-xs text-slate-200 hover:bg-slate-900 disabled:opacity-50"
+                      onClick={() => startEdit(it)}
+                    >
+                      Edit
+                    </button>
+                    {confirmDeleteId === it.id ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="rounded-lg border border-red-700 bg-red-950/40 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-900/50 disabled:opacity-50"
+                          onClick={() => void removeItem(it.id)}
+                        >
+                          Confirm delete
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="rounded-lg border border-slate-700 bg-slate-950/10 px-2 py-1 text-xs text-slate-200 hover:bg-slate-900 disabled:opacity-50"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >
+                          Keep
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="rounded-lg border border-slate-700 bg-slate-950/10 px-2 py-1 text-xs text-slate-300 hover:border-red-700 hover:text-red-300 disabled:opacity-50"
+                        onClick={() => setConfirmDeleteId(it.id)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                    </div>
                   </div>
                 </li>
               ))}
