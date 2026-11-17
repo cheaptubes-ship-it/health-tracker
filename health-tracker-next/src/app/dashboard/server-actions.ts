@@ -135,6 +135,36 @@ export async function deleteFavorite(formData: FormData) {
   revalidatePath('/dashboard')
 }
 
+export async function updateFavorite(formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const id = String(formData.get('id') ?? '')
+  if (!id) return
+
+  const name = s(formData.get('name'))
+  const calories = n(formData.get('calories'))
+  const protein_g = n(formData.get('protein_g')) ?? 0
+  const carbs_g = n(formData.get('carbs_g')) ?? 0
+  const fat_g = n(formData.get('fat_g')) ?? 0
+
+  if (!name || calories == null) throw new Error('Missing fields')
+
+  const { data, error } = await supabase
+    .from('favorite_foods')
+    .update({ name, calories, protein_g, carbs_g, fat_g })
+    .eq('id', id)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  // Row-level security turns a disallowed update into "0 rows", not an error; don't pass that off as saved.
+  if (!data?.length) throw new Error('Favorite was not updated (not found or not permitted)')
+  revalidatePath('/dashboard')
+}
+
 export async function addFoodFromFavorite(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const {

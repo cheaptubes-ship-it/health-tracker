@@ -6,6 +6,8 @@ import {
   addVitals,
   deleteFood,
   deleteFavorite,
+  saveFavoriteFromFood,
+  updateFavorite,
   deleteWeight,
 } from './server-actions'
 import { FoodClient } from './food-client'
@@ -132,6 +134,7 @@ export default async function DashboardPage({
     { data: todayWeights },
     { data: favorites },
     { data: targets },
+    { data: favUse },
   ] = await Promise.all([
     supabase
       .from('food_entries')
@@ -206,13 +209,34 @@ export default async function DashboardPage({
       .from('favorite_foods')
       .select('id, name, calories, protein_g, carbs_g, fat_g')
       .order('created_at', { ascending: false })
-      .limit(30)),
+      .limit(100)),
     // Macro targets feed the header's "Remaining" on every tab.
     supabase
       .from('macro_targets')
       .select('calories, protein_g, carbs_g, fat_g')
       .maybeSingle(),
+    // Which favorites were actually logged over the last 30 days (to surface the regulars).
+    only(onFood, supabase
+      .from('food_entries')
+      .select('name')
+      .eq('source', 'favorite')
+      .gte('entry_date', addDaysYmd(selectedDate, -30))
+      .lte('entry_date', selectedDate)),
   ])
+
+  // Entries added from a favorite are named "<name>" or "<name> x<servings>".
+  const favUseCount = new Map<string, number>()
+  for (const r of favUse ?? []) {
+    const base = String(r.name ?? '').replace(/ x[\d.]+$/, '')
+    favUseCount.set(base, (favUseCount.get(base) ?? 0) + 1)
+  }
+  // Most-logged first; ties keep newest-first order from the query.
+  const favList = (favorites ?? [])
+    .map((f) => ({ ...f, uses: favUseCount.get(f.name) ?? 0 }))
+    .sort((a, b) => b.uses - a.uses)
+  // "Regulars": logged at least 4 times in 30 days. Shown as one-tap buttons.
+  const usualFavs = favList.filter((f) => f.uses >= 4).slice(0, 6)
+  const favNames = new Set(favList.map((f) => f.name))
 
   const shortcutsToken = shortcutsTokenRow?.token ?? null
 
@@ -863,77 +887,119 @@ export default async function DashboardPage({
                 )
               })()}
 
-              {favorites && favorites.length ? (
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Favorites</div>
-                  {favorites.length > 10 ? (
-                    <div className="flex flex-wrap items-end gap-2">
-                      <p className="text-xs text-slate-400">Tip: use search, or pick a favorite below.</p>
-                      <form action={addFoodFromFavorite} className="flex flex-wrap items-end gap-2">
-                        <input type="hidden" name="entry_date" value={selectedDate} />
-                        <label className="grid gap-1 text-sm text-slate-200">
-                          Item
-                          <select
-                            name="favorite_id"
-                            className="h-10 min-w-64 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            defaultValue={favorites[0].id}
-                          >
-                            {favorites.map((f) => (
-                              <option key={f.id} value={f.id}>
-                                {f.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="grid gap-1 text-sm text-slate-200">
-                          Servings
+              {favList.length ? (
+                <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/20 p-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div className="text-sm font-medium">Favorites</div>
+                    {usualFavs.length ? (
+                      <div className="text-xs text-slate-400">Your regulars, from the last 30 days</div>
+                    ) : null}
+                  </div>
+
+                  {usualFavs.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {usualFavs.map((f) => (
+                        <form key={f.id} action={addFoodFromFavorite} className="flex items-center gap-2">
+                          <input type="hidden" name="entry_date" value={selectedDate} />
+                          <input type="hidden" name="favorite_id" value={f.id} />
                           <input
                             name="servings"
                             type="number"
                             step="0.01"
                             min={0.01}
                             defaultValue={1}
-                            className="h-10 w-24 rounded-lg border border-slate-700 bg-slate-950/40 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-20 rounded-full border border-slate-700 bg-slate-950/30 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            title="Servings"
                           />
-                        </label>
-                        <button className="h-10 rounded-lg bg-indigo-500 px-3 text-sm font-medium text-white hover:bg-indigo-400">
-                          Add
-                        </button>
-                      </form>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {favorites.map((f) => (
-                        <div key={f.id} className="flex items-center gap-2">
-                          <form action={addFoodFromFavorite} className="flex items-center gap-2">
-                            <input type="hidden" name="entry_date" value={selectedDate} />
-                            <input type="hidden" name="favorite_id" value={f.id} />
-                            <input
-                              name="servings"
-                              type="number"
-                              step="0.01"
-                              min={0.01}
-                              defaultValue={1}
-                              className="w-20 rounded-full border border-slate-700 bg-slate-950/30 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              title="Servings"
-                            />
-                            <button className="rounded-full border border-slate-700 bg-slate-950/30 px-3 py-1 text-sm text-slate-100 hover:bg-slate-900/50">
-                              Add {f.name}
-                            </button>
-                          </form>
-                          <form action={deleteFavorite}>
-                            <input type="hidden" name="id" value={f.id} />
-                            <button
-                              className="rounded-full border border-slate-700 bg-slate-950/10 px-2 py-1 text-xs text-slate-200 hover:bg-slate-900"
-                              title="Remove from favorites"
-                            >
-                              ✕
-                            </button>
-                          </form>
-                        </div>
+                          <button className="rounded-full border border-indigo-500/50 bg-indigo-500/15 px-3 py-1 text-sm text-slate-100 hover:bg-indigo-500/25">
+                            Add {f.name}
+                          </button>
+                        </form>
                       ))}
                     </div>
-                  )}
+                  ) : null}
+
+                  <details open={!usualFavs.length} className="rounded-lg border border-slate-800 bg-slate-950/30">
+                    <summary className="cursor-pointer select-none px-3 py-2 text-sm text-slate-200">
+                      All favorites ({favList.length}) · add, edit, remove
+                    </summary>
+                    <ul className="divide-y divide-slate-800 px-3">
+                      {favList.map((f) => (
+                        <li key={f.id} className="space-y-2 py-3">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-medium text-slate-100">{f.name}</div>
+                              <div className="text-xs text-slate-400">
+                                {Number(f.calories)} cal • P {Number(f.protein_g)} / C {Number(f.carbs_g)} / F {Number(f.fat_g)}
+                                {' • '}
+                                {f.uses ? `logged ${f.uses}× in 30 days` : 'not logged in 30 days'}
+                              </div>
+                            </div>
+                            <form action={addFoodFromFavorite} className="flex items-center gap-2">
+                              <input type="hidden" name="entry_date" value={selectedDate} />
+                              <input type="hidden" name="favorite_id" value={f.id} />
+                              <input
+                                name="servings"
+                                type="number"
+                                step="0.01"
+                                min={0.01}
+                                defaultValue={1}
+                                className="w-20 rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                title="Servings"
+                              />
+                              <button className="rounded-lg border border-slate-700 bg-slate-950/30 px-3 py-1 text-sm text-slate-100 hover:bg-slate-900/50">
+                                Add
+                              </button>
+                            </form>
+                          </div>
+
+                          <details>
+                            <summary className="w-fit cursor-pointer select-none rounded-lg border border-slate-700 bg-slate-950/10 px-2 py-1 text-xs text-slate-200 hover:bg-slate-900">
+                              Edit
+                            </summary>
+                            <form action={updateFavorite} className="mt-2 grid gap-2 sm:grid-cols-6">
+                              <input type="hidden" name="id" value={f.id} />
+                              <label className="grid gap-1 text-xs text-slate-300 sm:col-span-2">
+                                Name
+                                <input name="name" defaultValue={f.name} required className="rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                              </label>
+                              <label className="grid gap-1 text-xs text-slate-300">
+                                Calories
+                                <input name="calories" type="number" step="1" min={0} defaultValue={Number(f.calories)} required className="rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                              </label>
+                              <label className="grid gap-1 text-xs text-slate-300">
+                                Protein g
+                                <input name="protein_g" type="number" step="0.1" min={0} defaultValue={Number(f.protein_g)} className="rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                              </label>
+                              <label className="grid gap-1 text-xs text-slate-300">
+                                Carbs g
+                                <input name="carbs_g" type="number" step="0.1" min={0} defaultValue={Number(f.carbs_g)} className="rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                              </label>
+                              <label className="grid gap-1 text-xs text-slate-300">
+                                Fat g
+                                <input name="fat_g" type="number" step="0.1" min={0} defaultValue={Number(f.fat_g)} className="rounded-lg border border-slate-700 bg-slate-950/40 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                              </label>
+                              <button className="w-fit rounded-lg bg-indigo-500 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-400 sm:col-span-6">
+                                Save changes
+                              </button>
+                            </form>
+                          </details>
+
+                          <details>
+                            <summary className="w-fit cursor-pointer select-none rounded-lg border border-slate-700 bg-slate-950/10 px-2 py-1 text-xs text-slate-300 hover:border-red-700 hover:text-red-300">
+                              Remove
+                            </summary>
+                            <form action={deleteFavorite} className="mt-2">
+                              <input type="hidden" name="id" value={f.id} />
+                              <button className="rounded-lg border border-red-700 bg-red-950/40 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-900/50">
+                                Confirm: remove {f.name} from favorites
+                              </button>
+                            </form>
+                          </details>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 </div>
               ) : null}
 
@@ -977,6 +1043,21 @@ export default async function DashboardPage({
                           </div>
 
                           <div className="flex gap-2">
+                            {e.source !== 'favorite' && !favNames.has(e.name) ? (
+                              <form action={saveFavoriteFromFood}>
+                                <input type="hidden" name="name" value={e.name} />
+                                <input type="hidden" name="calories" value={Number(e.calories ?? 0)} />
+                                <input type="hidden" name="protein_g" value={Number(e.protein_g ?? 0)} />
+                                <input type="hidden" name="carbs_g" value={Number(e.carbs_g ?? 0)} />
+                                <input type="hidden" name="fat_g" value={Number(e.fat_g ?? 0)} />
+                                <button
+                                  className="rounded-lg border border-slate-700 bg-slate-950/30 px-2 py-1 text-xs text-slate-100 hover:bg-slate-900/50"
+                                  title="Save this entry as a favorite"
+                                >
+                                  ★ Favorite
+                                </button>
+                              </form>
+                            ) : null}
                             <form action={deleteFood}>
                               <input type="hidden" name="id" value={e.id} />
                               <button className="rounded-lg border border-slate-700 bg-slate-950/30 px-2 py-1 text-xs text-slate-100 hover:bg-slate-900/50">
