@@ -59,16 +59,23 @@ export function HydrationClient({
 
   async function add(payload: Record<string, unknown>) {
     setError(null)
-    setNotice(null)
-    const res = await fetch('/api/hydration/entry', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ entry_date: selectedDate, ...payload }),
-    })
-    const json = await res.json().catch(() => null)
-    if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to add hydration')
-    setNotice('Saved')
-    router.refresh()
+    // Immediate feedback on tap; replaced by "Saved" or an error below.
+    setNotice('Saving…')
+    try {
+      const res = await fetch('/api/hydration/entry', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ entry_date: selectedDate, ...payload }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to add hydration')
+      setNotice('Saved')
+      router.refresh()
+    } catch (e) {
+      // A failed save used to be silent (callers use `void add(...)`); show it instead.
+      setNotice(null)
+      setError(e instanceof Error ? e.message : String(e))
+    }
   }
 
   return (

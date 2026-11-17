@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { peptideKey } from './peptides-utils'
 
 export type Item = {
@@ -44,6 +45,7 @@ export function PeptideQuickLogClient({
   scheduleItems: Item[]
   takenToday: TakenEntry[]
 }) {
+  const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -120,8 +122,8 @@ export function PeptideQuickLogClient({
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed')
       setLastLoggedEntryId(json?.entryId ?? null)
       setNotice('Logged')
-      // The peptide list below is server-rendered; easiest is a full refresh.
-      window.location.reload()
+      // The peptide list below is server-rendered; refresh server data without a full page reload.
+      router.refresh()
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
     } finally {
@@ -177,7 +179,7 @@ export function PeptideQuickLogClient({
                 if (!res.ok || !json?.ok) throw new Error(json?.error ?? 'Failed to undo')
                 setNotice('Undid last log')
                 setLastLoggedEntryId(null)
-                window.location.reload()
+                router.refresh()
               } catch (e) {
                 setErr(e instanceof Error ? e.message : String(e))
               }

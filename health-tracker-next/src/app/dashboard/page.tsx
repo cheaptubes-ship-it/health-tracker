@@ -64,9 +64,17 @@ export default async function DashboardPage({
   const summaryRange: SummaryRange = range ?? 'day'
 
   const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Auth check and timezone lookup run together (one round trip instead of two).
+  const [
+    {
+      data: { user },
+    },
+    { data: userSettings },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    // Timezone (per-user). Used for date defaults + day-of-week schedules.
+    supabase.from('user_settings').select('timezone').maybeSingle(),
+  ])
 
   if (!user) {
     return (
@@ -79,12 +87,6 @@ export default async function DashboardPage({
     )
   }
 
-  // Timezone (per-user). Used for date defaults + day-of-week schedules.
-  const { data: userSettings } = await supabase
-    .from('user_settings')
-    .select('timezone')
-    .maybeSingle()
-
   const timezone = userSettings?.timezone ?? 'America/New_York'
 
   const selectedDate = hasExplicitDate ? date : formatDateInTz(timezone)
@@ -94,6 +96,24 @@ export default async function DashboardPage({
     d.setDate(d.getDate() + delta)
     return formatDate(d)
   }
+
+  // Only load what the current tab renders. The header (calories, peptides, BP, last
+  // weight, remaining macros) needs food/vitals/peptides/weights/targets on every tab;
+  // everything else is tab-specific. Supabase query builders are lazy (no request is
+  // sent until awaited), so a skipped query costs nothing. Skipped queries resolve to
+  // { data: null }, which every consumer below already treats as "no rows".
+  const SKIPPED = Promise.resolve({ data: null })
+  function only<T>(needed: boolean, query: T): T | typeof SKIPPED {
+    return needed ? query : SKIPPED
+  }
+  const onFood = tab === 'food'
+  const onHydration = tab === 'hydration'
+  const onSettings = tab === 'settings'
+  const onSleep = tab === 'sleep'
+  const onPeptides = tab === 'peptides'
+  const onWeight = tab === 'weight'
+  const onSummary = tab === 'summary'
+  const onTrends = tab === 'trends'
 
   const [
     { data: food },
@@ -109,6 +129,9 @@ export default async function DashboardPage({
     { data: stepsLatest },
     { data: cardioLatest },
     { data: foodPrevDay },
+    { data: todayWeights },
+    { data: favorites },
+    { data: targets },
   ] = await Promise.all([
     supabase
       .from('food_entries')
@@ -133,67 +156,65 @@ export default async function DashboardPage({
       .lte('entry_date', selectedDate)
       .order('entry_date', { ascending: false })
       .limit(1),
-    supabase
+    only(onHydration, supabase
       .from('hydration_entries')
       .select('id, name, servings, water_ml, sodium_mg, potassium_mg, magnesium_mg, caffeine_mg, sugar_g, lemon_juice, created_at')
       .eq('entry_date', selectedDate)
-      .order('created_at', { ascending: false }),
-    supabase
+      .order('created_at', { ascending: false })),
+    only(onHydration || onSettings || onSummary, supabase
       .from('hydration_targets')
       .select('unit_pref, water_ml, sodium_mg, potassium_mg, magnesium_mg')
-      .maybeSingle(),
-    supabase.from('shortcuts_tokens').select('token').maybeSingle(),
-    supabase
+      .maybeSingle()),
+    only(onSettings, supabase.from('shortcuts_tokens').select('token').maybeSingle()),
+    only(onSleep || onSummary, supabase
       .from('sleep_entries')
       .select('id, entry_date, sleep_start_at, sleep_end_at, quality, note, created_at')
       .eq('entry_date', selectedDate)
-      .order('created_at', { ascending: false }),
-    supabase
+      .order('created_at', { ascending: false })),
+    only(onPeptides, supabase
       .from('peptide_schedules')
       .select('id, normalized_name, display_name, dose_value, dose_unit, timing, days_of_week, active')
       .order('display_name', { ascending: true })
-      .order('timing', { ascending: true }),
-    supabase
+      .order('timing', { ascending: true })),
+    only(onPeptides, supabase
       .from('peptide_entries')
       .select('id, name, timing, status, entry_date')
       .eq('entry_date', selectedDate)
       .eq('status', 'taken')
-      .order('taken_at', { ascending: false }),
-    supabase
+      .order('taken_at', { ascending: false })),
+    only(onSettings, supabase
       .from('steps_entries')
       .select('entry_date, steps, updated_at')
       .order('updated_at', { ascending: false })
-      .limit(1),
-    supabase
+      .limit(1)),
+    only(onSettings, supabase
       .from('cardio_entries')
       .select('kind, started_at, ended_at, updated_at')
       .order('updated_at', { ascending: false })
-      .limit(1),
+      .limit(1)),
     // Previous day macros (quick reference)
-    supabase
+    only(onFood || onSummary, supabase
       .from('food_entries')
       .select('calories, protein_g, carbs_g, fat_g')
-      .eq('entry_date', addDaysYmd(selectedDate, -1)),
+      .eq('entry_date', addDaysYmd(selectedDate, -1))),
+    only(onWeight, supabase
+      .from('weight_entries')
+      .select('id, weight_lbs, created_at')
+      .eq('entry_date', selectedDate)
+      .order('created_at', { ascending: true })),
+    only(onFood, supabase
+      .from('favorite_foods')
+      .select('id, name, calories, protein_g, carbs_g, fat_g')
+      .order('created_at', { ascending: false })
+      .limit(30)),
+    // Macro targets feed the header's "Remaining" on every tab.
+    supabase
+      .from('macro_targets')
+      .select('calories, protein_g, carbs_g, fat_g')
+      .maybeSingle(),
   ])
 
-  const { data: todayWeights } = await supabase
-    .from('weight_entries')
-    .select('id, weight_lbs, created_at')
-    .eq('entry_date', selectedDate)
-    .order('created_at', { ascending: true })
-
   const shortcutsToken = shortcutsTokenRow?.token ?? null
-
-  const { data: favorites } = await supabase
-    .from('favorite_foods')
-    .select('id, name, calories, protein_g, carbs_g, fat_g')
-    .order('created_at', { ascending: false })
-    .limit(30)
-
-  const { data: targets } = await supabase
-    .from('macro_targets')
-    .select('calories, protein_g, carbs_g, fat_g')
-    .maybeSingle()
 
   const hydrationTotals = {
     water_ml: (hydration ?? []).reduce((s, r) => s + Number(r.water_ml ?? 0), 0),
@@ -255,59 +276,59 @@ export default async function DashboardPage({
   const summaryWindow = rangeStartEnd(selectedDate, summaryRange)
 
   const [foodSum, vitalsSum, peptidesSum, weightSum, hydrationSum, sleepSum, fastingWin, stepsDay, prevWeightRow] = await Promise.all([
-    supabase
+    only(onSummary, supabase
       .from('food_entries')
       .select('calories, protein_g, carbs_g, fat_g')
       .gte('entry_date', summaryWindow.start)
-      .lte('entry_date', summaryWindow.end),
-    supabase
+      .lte('entry_date', summaryWindow.end)),
+    only(onSummary, supabase
       .from('vitals_entries')
       .select('systolic, diastolic, pulse')
       .gte('entry_date', summaryWindow.start)
-      .lte('entry_date', summaryWindow.end),
-    supabase
+      .lte('entry_date', summaryWindow.end)),
+    only(onSummary, supabase
       .from('peptide_entries')
       .select('actual_dose_mcg, status')
       .eq('status', 'taken')
       .gte('entry_date', summaryWindow.start)
-      .lte('entry_date', summaryWindow.end),
-    supabase
+      .lte('entry_date', summaryWindow.end)),
+    only(onSummary, supabase
       .from('weight_entries')
       .select('entry_date, weight_lbs, created_at')
       .gte('entry_date', summaryWindow.start)
       .lte('entry_date', summaryWindow.end)
       .order('entry_date', { ascending: true })
-      .order('created_at', { ascending: true }),
-    supabase
+      .order('created_at', { ascending: true })),
+    only(onSummary, supabase
       .from('hydration_entries')
       .select('water_ml, sodium_mg, potassium_mg, magnesium_mg')
       .gte('entry_date', summaryWindow.start)
-      .lte('entry_date', summaryWindow.end),
-    supabase
+      .lte('entry_date', summaryWindow.end)),
+    only(onSummary, supabase
       .from('sleep_entries')
       .select('entry_date, sleep_start_at, sleep_end_at, quality')
       .gte('entry_date', summaryWindow.start)
-      .lte('entry_date', summaryWindow.end),
+      .lte('entry_date', summaryWindow.end)),
     // Fasting is a point-in-time status; we show it for the currently selected date.
-    supabase
+    only(onSummary, supabase
       .from('fasting_windows')
       .select('fast_start_at, fast_end_at')
       .eq('entry_date', selectedDate)
-      .maybeSingle(),
+      .maybeSingle()),
     // Steps for the selected date (imported from Shortcuts)
-    supabase
+    only(onSummary, supabase
       .from('steps_entries')
       .select('steps, entry_date, updated_at')
       .eq('entry_date', selectedDate)
       .order('updated_at', { ascending: false })
-      .limit(1),
+      .limit(1)),
     // Previous weight before selected date (for day delta)
-    supabase
+    only(onSummary, supabase
       .from('weight_entries')
       .select('weight_lbs, entry_date')
       .lt('entry_date', selectedDate)
       .order('entry_date', { ascending: false })
-      .limit(1),
+      .limit(1)),
   ])
 
   const vitalsRows = vitalsSum.data ?? []
@@ -445,43 +466,43 @@ export default async function DashboardPage({
   }
 
   const [food30, vitals30, peptides30, weight30, fasting90, carbsBP90] = await Promise.all([
-    supabase
+    only(onTrends, supabase
       .from('food_entries')
       .select('entry_date, calories, protein_g, carbs_g, fat_g')
       .gte('entry_date', dayKeys[0])
-      .lte('entry_date', dayKeys[dayKeys.length - 1]),
-    supabase
+      .lte('entry_date', dayKeys[dayKeys.length - 1])),
+    only(onTrends, supabase
       .from('vitals_entries')
       .select('entry_date, systolic, diastolic, pulse')
       .gte('entry_date', dayKeys[0])
-      .lte('entry_date', dayKeys[dayKeys.length - 1]),
-    supabase
+      .lte('entry_date', dayKeys[dayKeys.length - 1])),
+    only(onTrends, supabase
       .from('peptide_entries')
       .select('entry_date, name, actual_dose_mcg, status')
       .eq('status', 'taken')
       .gte('entry_date', dayKeys[0])
-      .lte('entry_date', dayKeys[dayKeys.length - 1]),
-    supabase
+      .lte('entry_date', dayKeys[dayKeys.length - 1])),
+    only(onTrends, supabase
       .from('weight_entries')
       .select('entry_date, weight_lbs, created_at')
       .gte('entry_date', dayKeys[0])
       .lte('entry_date', dayKeys[dayKeys.length - 1])
-      .order('created_at', { ascending: true }),
+      .order('created_at', { ascending: true })),
     // Fasting windows for analysis
-    supabase
+    only(onTrends, supabase
       .from('fasting_windows')
       .select('entry_date, fast_start_at, fast_end_at')
       .eq('user_id', user.id)
       .gte('entry_date', dayKeys[0])
       .lte('entry_date', dayKeys[dayKeys.length - 1])
-      .not('fast_end_at', 'is', null),
+      .not('fast_end_at', 'is', null)),
     // Food for carbs/protein vs next-day BP correlation
-    supabase
+    only(onTrends, supabase
       .from('food_entries')
       .select('entry_date, carbs_g, protein_g')
       .eq('user_id', user.id)
       .gte('entry_date', dayKeys[0])
-      .lte('entry_date', dayKeys[dayKeys.length - 1]),
+      .lte('entry_date', dayKeys[dayKeys.length - 1])),
   ])
 
   const caloriesByDay = new Map<string, number>()
